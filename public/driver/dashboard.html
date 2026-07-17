@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ドライバー画面</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="title">ドライバー画面 <span id="driverNameLabel" class="muted"></span></div>
+    <nav>
+      <button class="logout" onclick="logout()">ログアウト</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="tabs">
+      <button data-tab="profile" class="active">プロフィール</button>
+      <button data-tab="monthly">月次入力</button>
+      <button data-tab="invoices">請求書一覧</button>
+    </div>
+
+    <!-- プロフィール -->
+    <section id="tab-profile">
+      <div class="card">
+        <h2>ドライバー情報</h2>
+        <form id="profileForm">
+          <div class="row">
+            <div><label>氏名</label><input type="text" id="p_name"></div>
+            <div><label>フリガナ</label><input type="text" id="p_name_kana"></div>
+          </div>
+          <label>郵便番号</label>
+          <input type="text" id="p_postal_code" placeholder="000-0000">
+          <label>住所</label>
+          <input type="text" id="p_address">
+          <label>電話番号</label>
+          <input type="text" id="p_phone">
+
+          <div class="row">
+            <div>
+              <label><input type="checkbox" id="p_qualified" style="width:auto; display:inline;"> 適格請求書発行事業者に登録している</label>
+            </div>
+          </div>
+          <label>インボイス登録番号(T+13桁)</label>
+          <input type="text" id="p_reg_number" placeholder="T1234567890123">
+
+          <div class="row">
+            <div><label>金融機関名</label><input type="text" id="p_bank_name"></div>
+            <div><label>支店名</label><input type="text" id="p_bank_branch"></div>
+          </div>
+          <div class="row">
+            <div>
+              <label>口座種別</label>
+              <select id="p_bank_account_type">
+                <option value="普通">普通</option>
+                <option value="当座">当座</option>
+              </select>
+            </div>
+            <div><label>口座番号</label><input type="text" id="p_bank_account_number"></div>
+          </div>
+          <label>口座名義(カナ)</label>
+          <input type="text" id="p_bank_account_holder">
+
+          <button type="submit" class="primary">保存する</button>
+          <div class="success-msg" id="profileMsg"></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- 月次入力 -->
+    <section id="tab-monthly" style="display:none;">
+      <div class="card">
+        <h2>対象月</h2>
+        <input type="month" id="periodPicker">
+      </div>
+
+      <div class="card">
+        <h2>1. 勤務日数・稼働単価</h2>
+        <p class="muted">稼働単価は日給ベースでご自身で入力してください。売上額 = 勤務日数 × 稼働単価 で自動計算されます。</p>
+        <div class="row">
+          <div><label>勤務日数</label><input type="number" id="workingDays" min="0" step="0.5"></div>
+          <div><label>稼働単価(円/日)</label><input type="number" id="unitPrice" min="0" step="1"></div>
+        </div>
+        <label>備考</label>
+        <input type="text" id="workNote">
+        <button class="primary" onclick="saveWorkEntry()">保存する</button>
+        <span id="workEntryMsg" class="success-msg"></span>
+      </div>
+
+      <div class="card">
+        <h2>2. 控除項目の申請</h2>
+        <p class="muted">車両代・事務手数料・車両修繕代・前借り分返済などを申請できます。金額は管理側で確認・調整されます。</p>
+        <div class="row">
+          <div>
+            <label>項目</label>
+            <select id="deductionCategory"></select>
+          </div>
+          <div><label>金額(円)</label><input type="number" id="deductionAmount" min="0"></div>
+        </div>
+        <label>メモ</label>
+        <input type="text" id="deductionMemo">
+        <button class="secondary" onclick="addDeduction()">追加</button>
+        <table id="deductionTable">
+          <thead><tr><th>項目</th><th>金額</th><th>メモ</th><th>登録元</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>3. 経費の申請</h2>
+        <p class="muted">消耗品費・車両修繕など、立て替えた経費を申請できます。</p>
+        <div class="row">
+          <div>
+            <label>項目</label>
+            <select id="expenseCategory"></select>
+          </div>
+          <div><label>金額(円)</label><input type="number" id="expenseAmount" min="0"></div>
+        </div>
+        <label>メモ</label>
+        <input type="text" id="expenseMemo">
+        <button class="secondary" onclick="addExpense()">追加</button>
+        <table id="expenseTable">
+          <thead><tr><th>項目</th><th>金額</th><th>メモ</th><th>登録元</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>4. インセンティブ(会社側で付与)</h2>
+        <table id="incentiveTable">
+          <thead><tr><th>項目</th><th>金額</th><th>メモ</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>今月の見込み金額</h2>
+        <div class="summary-grid">
+          <div class="box"><div class="label">売上(稼働費)</div><div class="value" id="prevSales">-</div></div>
+          <div class="box"><div class="label">インセンティブ+経費</div><div class="value" id="prevBonus">-</div></div>
+          <div class="box"><div class="label">控除合計</div><div class="value" id="prevDeduction">-</div></div>
+          <div class="box"><div class="label">お支払見込額</div><div class="value" id="prevNet">-</div></div>
+        </div>
+        <p class="muted">※ 確定した請求書は管理側で発行されます。ここでの表示はあくまで現在の入力内容に基づく見込みです。</p>
+      </div>
+    </section>
+
+    <!-- 請求書一覧 -->
+    <section id="tab-invoices" style="display:none;">
+      <div class="card">
+        <h2>発行済み請求書</h2>
+        <table id="invoiceTable">
+          <thead><tr><th>対象月</th><th>請求書番号</th><th class="num">お支払金額</th><th>ステータス</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let CATS = { DEDUCTION_CATEGORIES: [], EXPENSE_CATEGORIES: [] };
+
+    function currentPeriod() {
+      const v = document.getElementById('periodPicker').value;
+      if (v) return v;
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    async function api(path, opts) {
+      const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+      if (res.status === 401) { location.href = '/driver/login.html'; throw new Error('unauthorized'); }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+      return data;
+    }
+
+    function logout() {
+      api('/api/driver/logout', { method: 'POST' }).then(() => location.href = '/driver/login.html');
+    }
+
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        ['profile', 'monthly', 'invoices'].forEach(t => {
+          document.getElementById('tab-' + t).style.display = (t === btn.dataset.tab) ? 'block' : 'none';
+        });
+        if (btn.dataset.tab === 'invoices') loadInvoices();
+      });
+    });
+
+    async function loadMe() {
+      const { driver } = await api('/api/driver/me');
+      document.getElementById('driverNameLabel').textContent = `(${driver.name} さん)`;
+      document.getElementById('p_name').value = driver.name || '';
+      document.getElementById('p_name_kana').value = driver.name_kana || '';
+      document.getElementById('p_postal_code').value = driver.postal_code || '';
+      document.getElementById('p_address').value = driver.address || '';
+      document.getElementById('p_phone').value = driver.phone || '';
+      document.getElementById('p_qualified').checked = !!driver.is_qualified_invoice_issuer;
+      document.getElementById('p_reg_number').value = driver.invoice_registration_number || '';
+      document.getElementById('p_bank_name').value = driver.bank_name || '';
+      document.getElementById('p_bank_branch').value = driver.bank_branch || '';
+      document.getElementById('p_bank_account_type').value = driver.bank_account_type || '普通';
+      document.getElementById('p_bank_account_number').value = driver.bank_account_number || '';
+      document.getElementById('p_bank_account_holder').value = driver.bank_account_holder || '';
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await api('/api/driver/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: document.getElementById('p_name').value,
+          name_kana: document.getElementById('p_name_kana').value,
+          postal_code: document.getElementById('p_postal_code').value,
+          address: document.getElementById('p_address').value,
+          phone: document.getElementById('p_phone').value,
+          is_qualified_invoice_issuer: document.getElementById('p_qualified').checked,
+          invoice_registration_number: document.getElementById('p_reg_number').value,
+          bank_name: document.getElementById('p_bank_name').value,
+          bank_branch: document.getElementById('p_bank_branch').value,
+          bank_account_type: document.getElementById('p_bank_account_type').value,
+          bank_account_number: document.getElementById('p_bank_account_number').value,
+          bank_account_holder: document.getElementById('p_bank_account_holder').value
+        })
+      });
+      document.getElementById('profileMsg').textContent = '保存しました';
+      setTimeout(() => document.getElementById('profileMsg').textContent = '', 2000);
+    });
+
+    async function loadCategories() {
+      const data = await api('/api/driver/categories');
+      CATS = data;
+      const dSel = document.getElementById('deductionCategory');
+      dSel.innerHTML = CATS.DEDUCTION_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+      const eSel = document.getElementById('expenseCategory');
+      eSel.innerHTML = CATS.EXPENSE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    async function loadWorkEntry() {
+      const period = currentPeriod();
+      const { entries } = await api(`/api/driver/work-entries?period=${period}`);
+      const e = entries[0];
+      document.getElementById('workingDays').value = e ? e.working_days : '';
+      document.getElementById('unitPrice').value = e ? e.unit_price : '';
+      document.getElementById('workNote').value = e ? e.note : '';
+    }
+
+    async function saveWorkEntry() {
+      const period = currentPeriod();
+      await api('/api/driver/work-entries', {
+        method: 'POST',
+        body: JSON.stringify({
+          period,
+          working_days: Number(document.getElementById('workingDays').value || 0),
+          unit_price: Number(document.getElementById('unitPrice').value || 0),
+          note: document.getElementById('workNote').value
+        })
+      });
+      document.getElementById('workEntryMsg').textContent = '保存しました';
+      setTimeout(() => document.getElementById('workEntryMsg').textContent = '', 2000);
+      loadPreview();
+    }
+
+    async function loadDeductions() {
+      const period = currentPeriod();
+      const { items } = await api(`/api/driver/deductions?period=${period}`);
+      const tbody = document.querySelector('#deductionTable tbody');
+      tbody.innerHTML = items.map(it => `
+        <tr>
+          <td>${it.category}</td><td class="num">¥${it.amount.toLocaleString()}</td><td>${it.memo || ''}</td>
+          <td><span class="badge ${it.source === 'admin' ? 'blue' : 'gray'}">${it.source === 'admin' ? '管理側' : '自己申請'}</span></td>
+          <td>${it.source === 'driver' ? `<button class="danger" onclick="deleteDeduction('${it.id}')">削除</button>` : ''}</td>
+        </tr>`).join('') || '<tr><td colspan="5" class="muted">登録なし</td></tr>';
+    }
+
+    async function addDeduction() {
+      const period = currentPeriod();
+      await api('/api/driver/deductions', {
+        method: 'POST',
+        body: JSON.stringify({
+          period,
+          category: document.getElementById('deductionCategory').value,
+          amount: Number(document.getElementById('deductionAmount').value || 0),
+          memo: document.getElementById('deductionMemo').value
+        })
+      });
+      document.getElementById('deductionAmount').value = '';
+      document.getElementById('deductionMemo').value = '';
+      loadDeductions();
+      loadPreview();
+    }
+
+    async function deleteDeduction(id) {
+      await api(`/api/driver/deductions/${id}`, { method: 'DELETE' });
+      loadDeductions();
+      loadPreview();
+    }
+
+    async function loadExpenses() {
+      const period = currentPeriod();
+      const { items } = await api(`/api/driver/expenses?period=${period}`);
+      const tbody = document.querySelector('#expenseTable tbody');
+      tbody.innerHTML = items.map(it => `
+        <tr>
+          <td>${it.category}</td><td class="num">¥${it.amount.toLocaleString()}</td><td>${it.memo || ''}</td>
+          <td><span class="badge ${it.source === 'admin' ? 'blue' : 'gray'}">${it.source === 'admin' ? '管理側' : '自己申請'}</span></td>
+          <td>${it.source === 'driver' ? `<button class="danger" onclick="deleteExpense('${it.id}')">削除</button>` : ''}</td>
+        </tr>`).join('') || '<tr><td colspan="5" class="muted">登録なし</td></tr>';
+    }
+
+    async function addExpense() {
+      const period = currentPeriod();
+      await api('/api/driver/expenses', {
+        method: 'POST',
+        body: JSON.stringify({
+          period,
+          category: document.getElementById('expenseCategory').value,
+          amount: Number(document.getElementById('expenseAmount').value || 0),
+          memo: document.getElementById('expenseMemo').value
+        })
+      });
+      document.getElementById('expenseAmount').value = '';
+      document.getElementById('expenseMemo').value = '';
+      loadExpenses();
+      loadPreview();
+    }
+
+    async function deleteExpense(id) {
+      await api(`/api/driver/expenses/${id}`, { method: 'DELETE' });
+      loadExpenses();
+      loadPreview();
+    }
+
+    async function loadIncentives() {
+      const period = currentPeriod();
+      const { items } = await api(`/api/driver/incentives?period=${period}`);
+      const tbody = document.querySelector('#incentiveTable tbody');
+      tbody.innerHTML = items.map(it => `<tr><td>${it.category}</td><td class="num">¥${it.amount.toLocaleString()}</td><td>${it.memo || ''}</td></tr>`).join('')
+        || '<tr><td colspan="3" class="muted">まだ付与されていません</td></tr>';
+    }
+
+    async function loadPreview() {
+      const period = currentPeriod();
+      try {
+        const { preview } = await api(`/api/driver/preview?period=${period}`);
+        document.getElementById('prevSales').textContent = `¥${preview.salesAmount.toLocaleString()}`;
+        document.getElementById('prevBonus').textContent = `¥${(preview.incentivesTotal + preview.expensesTotal).toLocaleString()}`;
+        document.getElementById('prevDeduction').textContent = `−¥${preview.deductionsTotal.toLocaleString()}`;
+        document.getElementById('prevNet').textContent = `¥${preview.netPayment.toLocaleString()}`;
+      } catch (e) {
+        document.getElementById('prevSales').textContent = '-';
+        document.getElementById('prevBonus').textContent = '-';
+        document.getElementById('prevDeduction').textContent = '-';
+        document.getElementById('prevNet').textContent = '-';
+      }
+    }
+
+    async function loadInvoices() {
+      const { invoices } = await api('/api/driver/invoices');
+      const tbody = document.querySelector('#invoiceTable tbody');
+      tbody.innerHTML = invoices.map(inv => `
+        <tr>
+          <td>${inv.period}</td><td>${inv.invoice_number}</td>
+          <td class="num">¥${inv.net_payment.toLocaleString()}</td>
+          <td><span class="badge ${inv.status === 'sent' ? 'green' : 'blue'}">${inv.status === 'sent' ? '送付済み' : '発行済み'}</span></td>
+          <td><a class="link" href="/print/invoice/${inv.id}" target="_blank">表示/印刷</a></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="muted">請求書はまだありません</td></tr>';
+    }
+
+    async function reloadMonthlyTab() {
+      await Promise.all([loadWorkEntry(), loadDeductions(), loadExpenses(), loadIncentives(), loadPreview()]);
+    }
+
+    document.getElementById('periodPicker').addEventListener('change', reloadMonthlyTab);
+
+    (async function init() {
+      const now = new Date();
+      document.getElementById('periodPicker').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      await loadMe();
+      await loadCategories();
+      await reloadMonthlyTab();
+    })();
+  </script>
+</body>
+</html>

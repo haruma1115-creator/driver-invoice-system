@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>管理者ログイン</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="center-box">
+    <h1>管理者ログイン</h1>
+    <form id="loginForm">
+      <label>メールアドレス</label>
+      <input type="email" id="email" value="admin@example.com" required>
+      <label>パスワード</label>
+      <input type="password" id="password" required>
+      <button type="submit" class="primary" style="width:100%;">ログイン</button>
+      <div class="error-msg" id="errorMsg"></div>
+      <p class="muted">初期アカウント: admin@example.com / admin1234</p>
+    </form>
+    <p style="text-align:center; margin-top:16px;">
+      <a class="link" href="/driver/login.html">ドライバーログインはこちら</a>
+    </p>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const res = await fetch('/api/admin/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('errorMsg').textContent = data.error || 'ログインに失敗しました';
+        return;
+      }
+      location.href = '/admin/dashboard.html';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "driver-invoice-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "業務委託ドライバー向け 適格請求書自動作成システム(プロトタイプ)。ローカルではJSONファイル保存(npm install不要)、MONGODB_URIを設定するとMongoDBに永続化されます。",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node lib/seed.js"
+  },
+  "dependencies": {
+    "mongodb": "^6.10.0"
+  }
+}

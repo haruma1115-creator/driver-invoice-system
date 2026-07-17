@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>会社情報設定</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="title">会社情報設定</div>
+    <nav>
+      <a href="/admin/dashboard.html">ドライバー一覧</a>
+      <a href="/admin/invoices.html">請求書一覧</a>
+      <button class="logout" onclick="logout()">ログアウト</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <h2>請求書の宛先として表示される会社情報</h2>
+      <form id="companyForm">
+        <label>会社名</label>
+        <input type="text" id="company_name">
+        <label>郵便番号</label>
+        <input type="text" id="postal_code" placeholder="000-0000">
+        <label>住所</label>
+        <input type="text" id="address">
+        <label>電話番号</label>
+        <input type="text" id="phone">
+        <label>代表者名</label>
+        <input type="text" id="representative_name">
+        <button type="submit" class="primary">保存する</button>
+        <div class="success-msg" id="msg"></div>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    async function api(path, opts) {
+      const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+      if (res.status === 401) { location.href = '/admin/login.html'; throw new Error('unauthorized'); }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+      return data;
+    }
+    function logout() { api('/api/admin/logout', { method: 'POST' }).then(() => location.href = '/admin/login.html'); }
+
+    (async function init() {
+      const { company } = await api('/api/admin/company-settings');
+      document.getElementById('company_name').value = company.company_name || '';
+      document.getElementById('postal_code').value = company.postal_code || '';
+      document.getElementById('address').value = company.address || '';
+      document.getElementById('phone').value = company.phone || '';
+      document.getElementById('representative_name').value = company.representative_name || '';
+    })();
+
+    document.getElementById('companyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await api('/api/admin/company-settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          company_name: document.getElementById('company_name').value,
+          postal_code: document.getElementById('postal_code').value,
+          address: document.getElementById('address').value,
+          phone: document.getElementById('phone').value,
+          representative_name: document.getElementById('representative_name').value
+        })
+      });
+      document.getElementById('msg').textContent = '保存しました';
+      setTimeout(() => document.getElementById('msg').textContent = '', 2000);
+    });
+  </script>
+</body>
+</html>

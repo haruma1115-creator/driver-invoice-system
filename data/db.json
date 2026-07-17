@@ -1,0 +1,209 @@
+{
+  "drivers": [
+    {
+      "id": "03b0a266-0c8e-4d60-8f64-c189541afbab",
+      "email": "haruma1115@acenumber.info",
+      "password_hash": "scrypt:c3bb8dc7a4e2c565ab37d8a4340b6404:0850b3cddb7558a785c66ef6be8deb833299d2fa928494184ac2fa779a4d6a7c65fcc979a3316c8e911943f0f6e93b75102ab631645277f7d8a823be12c440f6",
+      "name": "佐々木春磨",
+      "name_kana": "",
+      "postal_code": "",
+      "address": "",
+      "phone": "",
+      "bank_name": "",
+      "bank_branch": "",
+      "bank_account_type": "普通",
+      "bank_account_number": "",
+      "bank_account_holder": "",
+      "is_qualified_invoice_issuer": false,
+      "invoice_registration_number": "",
+      "created_at": "2026-07-17T12:36:28.989Z",
+      "updated_at": "2026-07-17T12:36:28.989Z"
+    },
+    {
+      "id": "66b3eba2-b2e1-492e-a205-8f738f9e620e",
+      "email": "chunmozuomu@gmail.com",
+      "password_hash": "scrypt:24681c5eefa006a3a1679253fd3ba89a:4ba42a688cadfd2d8edbeca60c1c73a957956a0922a42bcdd792753c4837c64e5b379f3af5934e66025811371db6f23349d42d5a97a207ec0a1a78c93fe1509c",
+      "name": "佐々木春磨",
+      "name_kana": "サイトウダイキ",
+      "postal_code": "0287553",
+      "address": "八幡平市扇畑122番地1",
+      "phone": "08028018381",
+      "bank_name": "あし",
+      "bank_branch": "",
+      "bank_account_type": "普通",
+      "bank_account_number": "",
+      "bank_account_holder": "",
+      "is_qualified_invoice_issuer": false,
+      "invoice_registration_number": "",
+      "created_at": "2026-07-17T13:12:53.811Z",
+      "updated_at": "2026-07-17T13:13:11.324Z"
+    }
+  ],
+  "admins": [
+    {
+      "id": "85e87145-c403-4c79-8029-c54ed898f7d6",
+      "email": "admin@example.com",
+      "password_hash": "scrypt:ab1482097941eaf6a5cc623684a6dffd:a7623da17aa770e41c55288f51259efcc7a9bc83d88bdd4f9cf86a2cbe3cb4675ec3a9a28a170193f251a00c28f060f48065057a2ea7cda2428d840456eb0fda",
+      "name": "管理者",
+      "created_at": "2026-07-17T12:10:38.305Z"
+    }
+  ],
+  "work_entries": [
+    {
+      "id": "2c118cb7-44ef-47f4-8864-d33cfdaf93f0",
+      "driver_id": "66b3eba2-b2e1-492e-a205-8f738f9e620e",
+      "period": "2026-07",
+      "working_days": 20,
+      "unit_price": 15000,
+      "note": "",
+      "status": "invoiced",
+      "created_at": "2026-07-17T13:13:24.981Z",
+      "updated_at": "2026-07-17T13:13:24.981Z"
+    }
+  ],
+  "deduction_items": [
+    {
+      "id": "2c7b5b76-3e55-4ab3-a54a-f8c240d2742c",
+      "driver_id": "66b3eba2-b2e1-492e-a205-8f738f9e620e",
+      "period": "2026-07",
+      "category": "車両代",
+      "amount": 36363,
+      "memo": "",
+      "source": "driver",
+      "created_at": "2026-07-17T13:13:34.192Z"
+    }
+  ],
+  "expense_items": [
+    {
+      "id": "6ce8172c-548b-4b94-a669-bafea31f131f",
+      "driver_id": "03b0a266-0c8e-4d60-8f64-c189541afbab",
+      "period": "2026-07",
+      "category": "消耗品費",
+      "amount": 0,
+      "memo": "",
+      "source": "driver",
+      "created_at": "2026-07-17T12:36:54.589Z"
+    },
+    {
+      "id": "96a4942e-8d20-481f-90d1-cc7eeadaa67d",
+      "driver_id": "66b3eba2-b2e1-492e-a205-8f738f9e620e",
+      "period": "2026-07",
+      "category": "消耗品費",
+      "amount": 2000,
+      "memo": "",
+      "source": "driver",
+      "created_at": "2026-07-17T13:13:41.850Z"
+    }
+  ],
+  "incentive_items": [
+    {
+      "id": "697b710b-8135-4641-a97e-540e1acb5234",
+      "driver_id": "66b3eba2-b2e1-492e-a205-8f738f9e620e",
+      "period": "2026-07",
+      "category": "繁忙期インセンティブ",
+      "amount": 30000,
+      "memo": "",
+      "source": "admin",
+      "created_at": "2026-07-17T13:14:59.863Z"
+    },
+    {
+      "id": "9346c449-0b00-4e77-b3c1-3bd92d78a9f3",
+      "driver_id": "66b3eba2-b2e1-492e-a205-8f738f9e620e",
+      "period": "2026-07",
+      "category": "その他",
+      "amount": 20000,
+      "memo": "岩手出張代",
+      "source": "admin",
+      "created_at": "2026-07-17T13:14:59.863Z"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "0a16b19b-bdba-4076-a870-80da813dabd9",
+      "driver_id": "66b3eba2-b2e1-492e-a205-8f738f9e620e",
+      "period": "2026-07",
+      "invoice_number": "INV-2026-07-0001",
+      "created_at": "2026-07-17T13:15:23.491Z",
+      "issue_date": "2026-07-17",
+      "sales_amount": 300000,
+      "incentives_total": 50000,
+      "expenses_total": 2000,
+      "deductions_total": 36363,
+      "taxable_base": 352000,
+      "tax_rate": 0.1,
+      "tax_amount": 35200,
+      "taxable_total": 387200,
+      "net_payment": 350837,
+      "status": "issued",
+      "updated_at": "2026-07-17T13:15:23.491Z"
+    }
+  ],
+  "invoice_line_items": [
+    {
+      "id": "cd8301ba-8a71-4fbb-8548-23dcde8527fb",
+      "invoice_id": "0a16b19b-bdba-4076-a870-80da813dabd9",
+      "section": "sales",
+      "category": "稼働費",
+      "description": "稼働 20日 × 単価 15,000円",
+      "quantity": 20,
+      "unit_price": 15000,
+      "amount": 300000,
+      "taxable": true
+    },
+    {
+      "id": "cc0b5d27-7384-4d17-8f24-548e4089decb",
+      "invoice_id": "0a16b19b-bdba-4076-a870-80da813dabd9",
+      "section": "incentive",
+      "category": "繁忙期インセンティブ",
+      "description": "繁忙期インセンティブ",
+      "quantity": 1,
+      "unit_price": 30000,
+      "amount": 30000,
+      "taxable": true
+    },
+    {
+      "id": "94fd30b1-3a54-452e-8ac9-a9c7f61ffff2",
+      "invoice_id": "0a16b19b-bdba-4076-a870-80da813dabd9",
+      "section": "incentive",
+      "category": "その他",
+      "description": "岩手出張代",
+      "quantity": 1,
+      "unit_price": 20000,
+      "amount": 20000,
+      "taxable": true
+    },
+    {
+      "id": "ee11a29c-b132-4b6b-938a-28c554dbaac4",
+      "invoice_id": "0a16b19b-bdba-4076-a870-80da813dabd9",
+      "section": "expense",
+      "category": "消耗品費",
+      "description": "消耗品費",
+      "quantity": 1,
+      "unit_price": 2000,
+      "amount": 2000,
+      "taxable": true
+    },
+    {
+      "id": "5aee3aa5-e392-42b9-a1c8-6148cbd4f228",
+      "invoice_id": "0a16b19b-bdba-4076-a870-80da813dabd9",
+      "section": "deduction",
+      "category": "車両代",
+      "description": "車両代",
+      "quantity": 1,
+      "unit_price": 36363,
+      "amount": 36363,
+      "taxable": false
+    }
+  ],
+  "company_settings": {
+    "company_name": "株式会社サンプル運送",
+    "postal_code": "100-0001",
+    "address": "東京都千代田区千代田1-1-1",
+    "phone": "03-0000-0000",
+    "representative_name": "代表取締役 山田太郎",
+    "invoice_registration_number": ""
+  },
+  "counters": {
+    "invoice": 1
+  }
+}

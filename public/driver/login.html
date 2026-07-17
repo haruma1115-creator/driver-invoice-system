@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ドライバーログイン</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="center-box">
+    <h1>ドライバーログイン</h1>
+    <form id="loginForm">
+      <label>メールアドレス</label>
+      <input type="email" id="email" required>
+      <label>パスワード</label>
+      <input type="password" id="password" required>
+      <button type="submit" class="primary" style="width:100%;">ログイン</button>
+      <div class="error-msg" id="errorMsg"></div>
+    </form>
+    <p style="text-align:center; margin-top:16px;">
+      初めてご利用の方は <a class="link" href="/driver/register.html">新規登録</a>
+    </p>
+    <p style="text-align:center;">
+      <a class="link" href="/admin/login.html">管理者ログインはこちら</a>
+    </p>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const res = await fetch('/api/driver/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('errorMsg').textContent = data.error || 'ログインに失敗しました';
+        return;
+      }
+      location.href = '/driver/dashboard.html';
+    });
+  </script>
+</body>
+</html>

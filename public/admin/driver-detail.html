@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ドライバー詳細・割り振り</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="title">ドライバー詳細</div>
+    <nav>
+      <a href="/admin/dashboard.html">ドライバー一覧に戻る</a>
+      <button class="logout" onclick="logout()">ログアウト</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <h2 id="driverNameHeading">-</h2>
+      <p class="muted" id="driverProfileLine"></p>
+      <label>対象月</label>
+      <input type="month" id="periodPicker">
+    </div>
+
+    <div class="summary-grid">
+      <div class="box"><div class="label">売上(稼働費)</div><div class="value" id="sSales">-</div></div>
+      <div class="box"><div class="label">インセンティブ+経費</div><div class="value" id="sBonus">-</div></div>
+      <div class="box"><div class="label">控除合計</div><div class="value" id="sDeduction">-</div></div>
+      <div class="box"><div class="label">お支払見込額</div><div class="value" id="sNet">-</div></div>
+    </div>
+
+    <div class="card">
+      <h2>控除項目(車両代・事務手数料・車両修繕代・前借り分返済)</h2>
+      <table id="deductionTable"><thead><tr><th>項目</th><th>金額</th><th>メモ</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="row" style="margin-top:12px;">
+        <div><select id="newDeductionCat"></select></div>
+        <div><input type="number" id="newDeductionAmt" placeholder="金額"></div>
+        <div><input type="text" id="newDeductionMemo" placeholder="メモ"></div>
+      </div>
+      <button class="secondary" onclick="addRow('deduction')">行を追加</button>
+      <button class="primary" onclick="saveSection('deduction')">控除項目を保存</button>
+    </div>
+
+    <div class="card">
+      <h2>インセンティブ(繁忙期・SNS・リクルート・その他)</h2>
+      <table id="incentiveTable"><thead><tr><th>項目</th><th>金額</th><th>メモ</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="row" style="margin-top:12px;">
+        <div><select id="newIncentiveCat"></select></div>
+        <div><input type="number" id="newIncentiveAmt" placeholder="金額"></div>
+        <div><input type="text" id="newIncentiveMemo" placeholder="メモ"></div>
+      </div>
+      <button class="secondary" onclick="addRow('incentive')">行を追加</button>
+      <button class="primary" onclick="saveSection('incentive')">インセンティブを保存</button>
+    </div>
+
+    <div class="card">
+      <h2>経費(消耗品費・車両修繕)</h2>
+      <p class="muted">ドライバーからの申請分もここに表示されます。金額を調整して保存すると確定します。</p>
+      <table id="expenseTable"><thead><tr><th>項目</th><th>金額</th><th>メモ</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="row" style="margin-top:12px;">
+        <div><select id="newExpenseCat"></select></div>
+        <div><input type="number" id="newExpenseAmt" placeholder="金額"></div>
+        <div><input type="text" id="newExpenseMemo" placeholder="メモ"></div>
+      </div>
+      <button class="secondary" onclick="addRow('expense')">行を追加</button>
+      <button class="primary" onclick="saveSection('expense')">経費を保存</button>
+    </div>
+
+    <div class="card">
+      <h2>請求書の発行</h2>
+      <p class="muted">上記の内容を保存してから発行してください。既に発行済みの場合は内容を上書きして再生成します。</p>
+      <button class="primary" onclick="generateInvoice()">この月の請求書を発行する</button>
+      <span id="invoiceMsg" class="success-msg"></span>
+      <table id="invoiceHistoryTable" style="margin-top:16px;">
+        <thead><tr><th>対象月</th><th>請求書番号</th><th class="num">お支払金額</th><th>ステータス</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const CATEGORIES = { deduction: [], incentive: [], expense: [] };
+    const rows = { deduction: [], incentive: [], expense: [] };
+    const params = new URLSearchParams(location.search);
+    const driverId = params.get('id');
+
+    async function api(path, opts) {
+      const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+      if (res.status === 401) { location.href = '/admin/login.html'; throw new Error('unauthorized'); }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+      return data;
+    }
+    function logout() { api('/api/admin/logout', { method: 'POST' }).then(() => location.href = '/admin/login.html'); }
+
+    function currentPeriod() { return document.getElementById('periodPicker').value; }
+
+    function renderTable(kind) {
+      const tbody = document.querySelector(`#${kind}Table tbody`);
+      tbody.innerHTML = rows[kind].map((r, i) => `
+        <tr>
+          <td>${r.category}</td>
+          <td><input type="number" value="${r.amount}" onchange="rows.${kind}[${i}].amount = Number(this.value)" style="width:120px;"></td>
+          <td><input type="text" value="${r.memo || ''}" onchange="rows.${kind}[${i}].memo = this.value"></td>
+          <td><button class="danger" onclick="removeRow('${kind}', ${i})">削除</button></td>
+        </tr>`).join('') || '<tr><td colspan="4" class="muted">項目なし</td></tr>';
+    }
+
+    function addRow(kind) {
+      const cat = document.getElementById(`new${cap(kind)}Cat`).value;
+      const amt = Number(document.getElementById(`new${cap(kind)}Amt`).value || 0);
+      const memo = document.getElementById(`new${cap(kind)}Memo`).value;
+      rows[kind].push({ category: cat, amount: amt, memo });
+      document.getElementById(`new${cap(kind)}Amt`).value = '';
+      document.getElementById(`new${cap(kind)}Memo`).value = '';
+      renderTable(kind);
+    }
+
+    function removeRow(kind, i) {
+      rows[kind].splice(i, 1);
+      renderTable(kind);
+    }
+
+    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    async function saveSection(kind) {
+      const period = currentPeriod();
+      const collectionName = kind === 'deduction' ? 'deductions' : kind === 'incentive' ? 'incentives' : 'expenses';
+      await api(`/api/admin/drivers/${driverId}/${collectionName}`, {
+        method: 'PUT',
+        body: JSON.stringify({ period, items: rows[kind] })
+      });
+      await loadDetail();
+    }
+
+    async function generateInvoice() {
+      const period = currentPeriod();
+      try {
+        await api(`/api/admin/drivers/${driverId}/invoices`, { method: 'POST', body: JSON.stringify({ period }) });
+        document.getElementById('invoiceMsg').textContent = '請求書を発行しました';
+        setTimeout(() => document.getElementById('invoiceMsg').textContent = '', 3000);
+        await loadDetail();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function loadCategories() {
+      const data = await api('/api/admin/categories');
+      CATEGORIES.deduction = data.DEDUCTION_CATEGORIES;
+      CATEGORIES.incentive = data.INCENTIVE_CATEGORIES;
+      CATEGORIES.expense = data.EXPENSE_CATEGORIES;
+      document.getElementById('newDeductionCat').innerHTML = CATEGORIES.deduction.map(c => `<option value="${c}">${c}</option>`).join('');
+      document.getElementById('newIncentiveCat').innerHTML = CATEGORIES.incentive.map(c => `<option value="${c}">${c}</option>`).join('');
+      document.getElementById('newExpenseCat').innerHTML = CATEGORIES.expense.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    async function loadDetail() {
+      const period = currentPeriod();
+      const { driver, preview, invoices } = await api(`/api/admin/drivers/${driverId}?period=${period}`);
+      document.getElementById('driverNameHeading').textContent = driver.name;
+      document.getElementById('driverProfileLine').textContent =
+        `${driver.email} / ${driver.is_qualified_invoice_issuer ? '登録番号: ' + (driver.invoice_registration_number || '(未入力)') : '適格請求書発行事業者ではありません'}`;
+
+      if (preview) {
+        document.getElementById('sSales').textContent = `¥${preview.salesAmount.toLocaleString()}`;
+        document.getElementById('sBonus').textContent = `¥${(preview.incentivesTotal + preview.expensesTotal).toLocaleString()}`;
+        document.getElementById('sDeduction').textContent = `−¥${preview.deductionsTotal.toLocaleString()}`;
+        document.getElementById('sNet').textContent = `¥${preview.netPayment.toLocaleString()}`;
+        rows.deduction = preview.deductionLines.map(l => ({ category: l.category, amount: l.amount, memo: l.memo }));
+        rows.incentive = preview.incentiveLines.map(l => ({ category: l.category, amount: l.amount, memo: l.memo }));
+        rows.expense = preview.expenseLines.map(l => ({ category: l.category, amount: l.amount, memo: l.memo }));
+      } else {
+        document.getElementById('sSales').textContent = '¥0';
+        document.getElementById('sBonus').textContent = '¥0';
+        document.getElementById('sDeduction').textContent = '−¥0';
+        document.getElementById('sNet').textContent = '¥0';
+        rows.deduction = []; rows.incentive = []; rows.expense = [];
+      }
+      renderTable('deduction'); renderTable('incentive'); renderTable('expense');
+
+      const tbody = document.querySelector('#invoiceHistoryTable tbody');
+      tbody.innerHTML = invoices.map(inv => `
+        <tr>
+          <td>${inv.period}</td><td>${inv.invoice_number}</td>
+          <td class="num">¥${inv.net_payment.toLocaleString()}</td>
+          <td><span class="badge ${inv.status === 'sent' ? 'green' : 'blue'}">${inv.status === 'sent' ? '送付済み' : '発行済み'}</span></td>
+          <td><a class="link" href="/print/invoice/${inv.id}" target="_blank">表示/印刷</a></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="muted">請求書はまだありません</td></tr>';
+    }
+
+    document.getElementById('periodPicker').addEventListener('change', loadDetail);
+
+    (async function init() {
+      const now = new Date();
+      document.getElementById('periodPicker').value = params.get('period') || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      await loadCategories();
+      await loadDetail();
+    })();
+  </script>
+</body>
+</html>

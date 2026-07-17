@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>請求書一覧</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="title">請求書一覧</div>
+    <nav>
+      <a href="/admin/dashboard.html">ドライバー一覧</a>
+      <a href="/admin/company.html">会社情報設定</a>
+      <button class="logout" onclick="logout()">ログアウト</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <h2>対象月で絞り込み</h2>
+      <input type="month" id="periodPicker">
+      <button class="secondary" onclick="loadInvoices()" style="margin-top:12px;">全期間表示</button>
+    </div>
+
+    <div class="card">
+      <table id="invoiceTable">
+        <thead><tr><th>対象月</th><th>ドライバー</th><th>請求書番号</th><th class="num">お支払金額</th><th>ステータス</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    async function api(path, opts) {
+      const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+      if (res.status === 401) { location.href = '/admin/login.html'; throw new Error('unauthorized'); }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+      return data;
+    }
+    function logout() { api('/api/admin/logout', { method: 'POST' }).then(() => location.href = '/admin/login.html'); }
+
+    async function markSent(id) {
+      await api(`/api/admin/invoices/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'sent' }) });
+      loadInvoices();
+    }
+
+    async function loadInvoices() {
+      const period = document.getElementById('periodPicker').value;
+      const url = period ? `/api/admin/invoices?period=${period}` : '/api/admin/invoices';
+      const { invoices } = await api(url);
+      const tbody = document.querySelector('#invoiceTable tbody');
+      tbody.innerHTML = invoices.map(inv => `
+        <tr>
+          <td>${inv.period}</td><td>${inv.driver_name}</td><td>${inv.invoice_number}</td>
+          <td class="num">¥${inv.net_payment.toLocaleString()}</td>
+          <td><span class="badge ${inv.status === 'sent' ? 'green' : 'blue'}">${inv.status === 'sent' ? '送付済み' : '発行済み'}</span></td>
+          <td>
+            <a class="link" href="/print/invoice/${inv.id}" target="_blank">表示/印刷</a>
+            ${inv.status !== 'sent' ? `<button class="secondary" style="margin-left:8px;" onclick="markSent('${inv.id}')">送付済みにする</button>` : ''}
+          </td>
+        </tr>`).join('') || '<tr><td colspan="6" class="muted">請求書はまだありません</td></tr>';
+    }
+
+    (async function init() {
+      const now = new Date();
+      document.getElementById('periodPicker').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      await loadInvoices();
+    })();
+  </script>
+</body>
+</html>

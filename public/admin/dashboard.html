@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>管理画面 - ドライバー一覧</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="title">管理画面 <span id="adminNameLabel" class="muted"></span></div>
+    <nav>
+      <a href="/admin/company.html">会社情報設定</a>
+      <a href="/admin/invoices.html">請求書一覧</a>
+      <button class="logout" onclick="logout()">ログアウト</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <h2>対象月</h2>
+      <input type="month" id="periodPicker">
+    </div>
+
+    <div class="card">
+      <h2>ドライバー一覧・売上確認</h2>
+      <table id="driverTable">
+        <thead><tr><th>氏名</th><th>メール</th><th class="num">売上(稼働費)</th><th>稼働入力</th><th>請求書</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    async function api(path, opts) {
+      const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+      if (res.status === 401) { location.href = '/admin/login.html'; throw new Error('unauthorized'); }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+      return data;
+    }
+
+    function logout() {
+      api('/api/admin/logout', { method: 'POST' }).then(() => location.href = '/admin/login.html');
+    }
+
+    function currentPeriod() {
+      return document.getElementById('periodPicker').value;
+    }
+
+    async function loadDrivers() {
+      const period = currentPeriod();
+      const { drivers } = await api(`/api/admin/drivers?period=${period}`);
+      const tbody = document.querySelector('#driverTable tbody');
+      tbody.innerHTML = drivers.map(d => `
+        <tr>
+          <td>${d.name}</td>
+          <td class="muted">${d.email}</td>
+          <td class="num">${d.sales_amount != null ? '¥' + d.sales_amount.toLocaleString() : '-'}</td>
+          <td>${d.work_entry_status ? `<span class="badge blue">${d.work_entry_status === 'invoiced' ? '請求済' : '入力済'}</span>` : '<span class="badge gray">未入力</span>'}</td>
+          <td>${d.invoice_status ? `<span class="badge ${d.invoice_status === 'sent' ? 'green' : 'blue'}">${d.invoice_status === 'sent' ? '送付済み' : '発行済み'}</span>` : '<span class="badge gray">未発行</span>'}</td>
+          <td><a class="link" href="/admin/driver-detail.html?id=${d.id}&period=${period}">詳細・割り振り</a></td>
+        </tr>`).join('') || '<tr><td colspan="6" class="muted">ドライバーが登録されていません</td></tr>';
+    }
+
+    document.getElementById('periodPicker').addEventListener('change', loadDrivers);
+
+    (async function init() {
+      const now = new Date();
+      document.getElementById('periodPicker').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const { admin } = await api('/api/admin/me');
+      document.getElementById('adminNameLabel').textContent = `(${admin.name})`;
+      await loadDrivers();
+    })();
+  </script>
+</body>
+</html>

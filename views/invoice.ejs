@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title><%= invoice.invoice_number %> - 請求書</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    color: #1a1a1a;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 32px;
+    background: #fff;
+  }
+  .no-print { text-align: right; margin-bottom: 16px; }
+  .no-print button {
+    padding: 8px 20px; font-size: 14px; cursor: pointer;
+    background: #2b6cb0; color: #fff; border: none; border-radius: 4px;
+  }
+  h1.doc-title { text-align: center; font-size: 26px; letter-spacing: 0.3em; margin: 0 0 24px; }
+  .top-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+  .to-block { font-size: 16px; }
+  .to-block .company { font-size: 20px; font-weight: bold; border-bottom: 2px solid #1a1a1a; padding-bottom: 4px; display: inline-block; }
+  .meta-block { text-align: right; font-size: 13px; line-height: 1.8; }
+  .issuer-block { text-align: right; font-size: 13px; line-height: 1.7; margin-bottom: 20px; }
+  .issuer-block .name { font-size: 15px; font-weight: bold; }
+  .amount-banner {
+    background: #f4f7fb; border: 1px solid #cbd5e0; border-radius: 6px;
+    padding: 14px 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .amount-banner .label { font-size: 15px; }
+  .amount-banner .value { font-size: 26px; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; }
+  th { background: #eef2f7; text-align: left; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  .section-title { font-weight: bold; font-size: 14px; margin: 18px 0 6px; }
+  .totals { width: 320px; margin-left: auto; font-size: 13px; }
+  .totals td { border: none; padding: 3px 4px; }
+  .totals tr.grand td { border-top: 2px solid #1a1a1a; font-weight: bold; font-size: 15px; }
+  .note { font-size: 11px; color: #555; margin-top: 20px; line-height: 1.7; border-top: 1px solid #ddd; padding-top: 10px; }
+  .bank-block { font-size: 13px; margin-top: 16px; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+  .badge.qualified { background: #e6fffa; color: #234e52; border: 1px solid #38b2ac; }
+  .badge.unqualified { background: #fff5f5; color: #742a2a; border: 1px solid #fc8181; }
+  @media print {
+    .no-print { display: none; }
+    body { padding: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="no-print"><button onclick="window.print()">この画面を印刷 / PDF保存</button></div>
+
+  <h1 class="doc-title"><%= driver.is_qualified_invoice_issuer ? '適格請求書' : '請求書' %></h1>
+
+  <div class="top-row">
+    <div class="to-block">
+      <span class="company"><%= company.company_name %></span> 御中
+    </div>
+    <div class="meta-block">
+      請求書番号: <%= invoice.invoice_number %><br>
+      発行日: <%= invoice.issue_date %><br>
+      対象月: <%= invoice.period %>
+    </div>
+  </div>
+
+  <div class="issuer-block">
+    <div class="name"><%= driver.name %></div>
+    <div><%= driver.postal_code ? '〒' + driver.postal_code : '' %> <%= driver.address %></div>
+    <div><%= driver.phone %></div>
+    <% if (driver.is_qualified_invoice_issuer) { %>
+      <div>登録番号: <%= driver.invoice_registration_number %> <span class="badge qualified">適格請求書発行事業者</span></div>
+    <% } else { %>
+      <div><span class="badge unqualified">適格請求書発行事業者ではありません(区分記載請求書)</span></div>
+    <% } %>
+  </div>
+
+  <div class="amount-banner">
+    <span class="label">ご請求金額(お支払金額)</span>
+    <span class="value">¥<%= invoice.net_payment.toLocaleString() %></span>
+  </div>
+
+  <div class="section-title">課税対象項目(消費税率10%)</div>
+  <table>
+    <thead>
+      <tr><th>区分</th><th>内容</th><th class="num">数量</th><th class="num">単価</th><th class="num">金額</th></tr>
+    </thead>
+    <tbody>
+      <% salesLines.forEach(l => { %>
+        <tr><td>稼働費</td><td><%= l.description %></td><td class="num"><%= l.quantity %></td><td class="num">¥<%= l.unit_price.toLocaleString() %></td><td class="num">¥<%= l.amount.toLocaleString() %></td></tr>
+      <% }) %>
+      <% incentiveLines.forEach(l => { %>
+        <tr><td>インセンティブ</td><td><%= l.category %><%= l.description && l.description !== l.category ? '(' + l.description + ')' : '' %></td><td class="num">1</td><td class="num">¥<%= l.amount.toLocaleString() %></td><td class="num">¥<%= l.amount.toLocaleString() %></td></tr>
+      <% }) %>
+      <% expenseLines.forEach(l => { %>
+        <tr><td>経費</td><td><%= l.category %><%= l.description && l.description !== l.category ? '(' + l.description + ')' : '' %></td><td class="num">1</td><td class="num">¥<%= l.amount.toLocaleString() %></td><td class="num">¥<%= l.amount.toLocaleString() %></td></tr>
+      <% }) %>
+      <% if (salesLines.length + incentiveLines.length + expenseLines.length === 0) { %>
+        <tr><td colspan="5" style="text-align:center; color:#888;">課税対象項目はありません</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td>税抜合計</td><td class="num">¥<%= invoice.taxable_base.toLocaleString() %></td></tr>
+    <tr><td>消費税(10%)</td><td class="num">¥<%= invoice.tax_amount.toLocaleString() %></td></tr>
+    <tr><td>税込合計</td><td class="num">¥<%= invoice.taxable_total.toLocaleString() %></td></tr>
+  </table>
+
+  <% if (deductionLines.length > 0) { %>
+    <div class="section-title">控除項目(内部精算・消費税課税対象外)</div>
+    <table>
+      <thead><tr><th>項目</th><th>内容</th><th class="num">金額</th></tr></thead>
+      <tbody>
+        <% deductionLines.forEach(l => { %>
+          <tr><td><%= l.category %></td><td><%= l.description && l.description !== l.category ? l.description : '' %></td><td class="num">−¥<%= l.amount.toLocaleString() %></td></tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <table class="totals">
+      <tr><td>控除合計</td><td class="num">−¥<%= invoice.deductions_total.toLocaleString() %></td></tr>
+    </table>
+  <% } %>
+
+  <table class="totals">
+    <tr class="grand"><td>お支払金額</td><td class="num">¥<%= invoice.net_payment.toLocaleString() %></td></tr>
+  </table>
+
+  <div class="bank-block">
+    <strong>お振込先</strong><br>
+    <%= driver.bank_name %> <%= driver.bank_branch %> <%= driver.bank_account_type %> <%= driver.bank_account_number %><br>
+    口座名義: <%= driver.bank_account_holder %>
+  </div>
+
+  <div class="note">
+    ※ 本請求書は稼働費・インセンティブ・経費相当額を消費税課税対象(標準税率10%)として税率ごとに1回だけ端数処理(切り捨て)しています。<br>
+    ※ 控除項目(車両代・事務手数料・車両修繕代・前借り分返済)は消費税の課税対象外の内部精算項目として、税込合計から差し引いています。実際の税務処理については税理士にご確認ください。<br>
+    <% if (!driver.is_qualified_invoice_issuer) { %>
+      ※ 発行者は適格請求書発行事業者ではないため、本書類はインボイス制度上の「適格請求書」には該当しません(区分記載請求書等保存方式の経過措置の対象となる場合があります)。<br>
+    <% } %>
+  </div>
+</body>
+</html>
