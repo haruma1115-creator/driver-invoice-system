@@ -170,6 +170,9 @@ function register(app) {
       };
       invoice.issue_date = new Date().toISOString().slice(0, 10);
       invoice.sales_amount = preview.salesAmount;
+      invoice.gasoline_amount = preview.gasolineAmount;
+      invoice.other_work_amount = preview.otherWorkAmount;
+      invoice.non_taxed_additions_total = preview.nonTaxedAdditionsTotal;
       invoice.incentives_total = preview.incentivesTotal;
       invoice.expenses_total = preview.expensesTotal;
       invoice.deductions_total = preview.deductionsTotal;
@@ -196,6 +199,32 @@ function register(app) {
           amount: preview.salesAmount,
           taxable: true
         });
+        if (preview.gasolineAmount > 0) {
+          lineItems.push({
+            id: db.id(),
+            invoice_id: invoice.id,
+            section: 'non_taxed_addition',
+            category: 'ガソリン代',
+            description: `稼働 ${preview.workEntry.working_days}日 × 日額 ${preview.gasolineUnitPrice.toLocaleString()}円`,
+            quantity: preview.workEntry.working_days,
+            unit_price: preview.gasolineUnitPrice,
+            amount: preview.gasolineAmount,
+            taxable: false
+          });
+        }
+        if (preview.otherWorkAmount > 0) {
+          lineItems.push({
+            id: db.id(),
+            invoice_id: invoice.id,
+            section: 'non_taxed_addition',
+            category: 'その他稼働',
+            description: `稼働 ${preview.workEntry.working_days}日 × 日額 ${preview.otherWorkUnitPrice.toLocaleString()}円`,
+            quantity: preview.workEntry.working_days,
+            unit_price: preview.otherWorkUnitPrice,
+            amount: preview.otherWorkAmount,
+            taxable: false
+          });
+        }
       }
       for (const li of preview.incentiveLines) {
         lineItems.push({

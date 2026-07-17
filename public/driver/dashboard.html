@@ -76,10 +76,14 @@
 
       <div class="card">
         <h2>1. 勤務日数・稼働単価</h2>
-        <p class="muted">稼働単価は日給ベースでご自身で入力してください。売上額 = 勤務日数 × 稼働単価 で自動計算されます。</p>
+        <p class="muted">稼働単価・ガソリン代・その他稼働は、いずれも「勤務日数 × 日額単価」で自動計算されます。ガソリン代・その他稼働は消費税がかからず、金額がそのまま合計に加算されます。</p>
         <div class="row">
           <div><label>勤務日数</label><input type="number" id="workingDays" min="0" step="0.5"></div>
           <div><label>稼働単価(円/日)</label><input type="number" id="unitPrice" min="0" step="1"></div>
+        </div>
+        <div class="row">
+          <div><label>ガソリン代 単価(円/日)</label><input type="number" id="gasolineUnitPrice" min="0" step="1"></div>
+          <div><label>その他稼働 単価(円/日)</label><input type="number" id="otherWorkUnitPrice" min="0" step="1"></div>
         </div>
         <label>備考</label>
         <input type="text" id="workNote">
@@ -135,8 +139,9 @@
 
       <div class="card">
         <h2>今月の見込み金額</h2>
-        <div class="summary-grid">
+        <div class="summary-grid" style="grid-template-columns: repeat(5, 1fr);">
           <div class="box"><div class="label">売上(稼働費)</div><div class="value" id="prevSales">-</div></div>
+          <div class="box"><div class="label">ガソリン代+その他稼働</div><div class="value" id="prevNonTaxed">-</div></div>
           <div class="box"><div class="label">インセンティブ+経費</div><div class="value" id="prevBonus">-</div></div>
           <div class="box"><div class="label">控除合計</div><div class="value" id="prevDeduction">-</div></div>
           <div class="box"><div class="label">お支払見込額</div><div class="value" id="prevNet">-</div></div>
@@ -245,6 +250,8 @@
       const e = entries[0];
       document.getElementById('workingDays').value = e ? e.working_days : '';
       document.getElementById('unitPrice').value = e ? e.unit_price : '';
+      document.getElementById('gasolineUnitPrice').value = e ? (e.gasoline_unit_price || '') : '';
+      document.getElementById('otherWorkUnitPrice').value = e ? (e.other_work_unit_price || '') : '';
       document.getElementById('workNote').value = e ? e.note : '';
     }
 
@@ -256,6 +263,8 @@
           period,
           working_days: Number(document.getElementById('workingDays').value || 0),
           unit_price: Number(document.getElementById('unitPrice').value || 0),
+          gasoline_unit_price: Number(document.getElementById('gasolineUnitPrice').value || 0),
+          other_work_unit_price: Number(document.getElementById('otherWorkUnitPrice').value || 0),
           note: document.getElementById('workNote').value
         })
       });
@@ -347,11 +356,13 @@
       try {
         const { preview } = await api(`/api/driver/preview?period=${period}`);
         document.getElementById('prevSales').textContent = `¥${preview.salesAmount.toLocaleString()}`;
+        document.getElementById('prevNonTaxed').textContent = `¥${preview.nonTaxedAdditionsTotal.toLocaleString()}`;
         document.getElementById('prevBonus').textContent = `¥${(preview.incentivesTotal + preview.expensesTotal).toLocaleString()}`;
         document.getElementById('prevDeduction').textContent = `−¥${preview.deductionsTotal.toLocaleString()}`;
         document.getElementById('prevNet').textContent = `¥${preview.netPayment.toLocaleString()}`;
       } catch (e) {
         document.getElementById('prevSales').textContent = '-';
+        document.getElementById('prevNonTaxed').textContent = '-';
         document.getElementById('prevBonus').textContent = '-';
         document.getElementById('prevDeduction').textContent = '-';
         document.getElementById('prevNet').textContent = '-';
