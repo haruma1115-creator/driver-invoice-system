@@ -33,6 +33,17 @@
         <div class="success-msg" id="msg"></div>
       </form>
     </div>
+
+    <div class="card">
+      <h2>請求書の自動送付先</h2>
+      <p class="muted">請求書一覧・ドライバー詳細画面の「メールで送付」ボタンを押すと、ここで設定したメールアドレスに請求書が送信されます。送信元(会社のメールアドレス)はサーバー側の環境変数(SMTP_USER)で設定します。</p>
+      <form id="mailForm">
+        <label>銀行への送付先メールアドレス</label>
+        <input type="text" id="bank_email" placeholder="bank-payment@example.com">
+        <button type="submit" class="primary">保存する</button>
+        <div class="success-msg" id="mailMsg"></div>
+      </form>
+    </div>
   </main>
 
   <script>
@@ -52,6 +63,7 @@
       document.getElementById('address').value = company.address || '';
       document.getElementById('phone').value = company.phone || '';
       document.getElementById('representative_name').value = company.representative_name || '';
+      document.getElementById('bank_email').value = company.bank_email || '';
     })();
 
     document.getElementById('companyForm').addEventListener('submit', async (e) => {
@@ -68,6 +80,16 @@
       });
       document.getElementById('msg').textContent = '保存しました';
       setTimeout(() => document.getElementById('msg').textContent = '', 2000);
+    });
+
+    document.getElementById('mailForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await api('/api/admin/company-settings', {
+        method: 'PUT',
+        body: JSON.stringify({ bank_email: document.getElementById('bank_email').value })
+      });
+      document.getElementById('mailMsg').textContent = '保存しました';
+      setTimeout(() => document.getElementById('mailMsg').textContent = '', 2000);
     });
   </script>
 </body>

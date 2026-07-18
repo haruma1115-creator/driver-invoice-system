@@ -45,6 +45,19 @@
       loadInvoices();
     }
 
+    async function sendMail(id, btn) {
+      btn.disabled = true;
+      btn.textContent = '送信中...';
+      try {
+        await api(`/api/admin/invoices/${id}/send`, { method: 'POST' });
+        await loadInvoices();
+      } catch (e) {
+        alert(e.message);
+        btn.disabled = false;
+        btn.textContent = 'メールで送付';
+      }
+    }
+
     async function loadInvoices() {
       const period = document.getElementById('periodPicker').value;
       const url = period ? `/api/admin/invoices?period=${period}` : '/api/admin/invoices';
@@ -57,6 +70,7 @@
           <td><span class="badge ${inv.status === 'sent' ? 'green' : 'blue'}">${inv.status === 'sent' ? '送付済み' : '発行済み'}</span></td>
           <td>
             <a class="link" href="/print/invoice/${inv.id}" target="_blank">表示/印刷</a>
+            <button class="secondary" style="margin-left:8px;" onclick="sendMail('${inv.id}', this)">メールで送付</button>
             ${inv.status !== 'sent' ? `<button class="secondary" style="margin-left:8px;" onclick="markSent('${inv.id}')">送付済みにする</button>` : ''}
           </td>
         </tr>`).join('') || '<tr><td colspan="6" class="muted">請求書はまだありません</td></tr>';

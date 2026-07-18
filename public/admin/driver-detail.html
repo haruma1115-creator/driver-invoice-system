@@ -188,8 +188,24 @@
           <td>${inv.period}</td><td>${inv.invoice_number}</td>
           <td class="num">¥${inv.net_payment.toLocaleString()}</td>
           <td><span class="badge ${inv.status === 'sent' ? 'green' : 'blue'}">${inv.status === 'sent' ? '送付済み' : '発行済み'}</span></td>
-          <td><a class="link" href="/print/invoice/${inv.id}" target="_blank">表示/印刷</a></td>
+          <td>
+            <a class="link" href="/print/invoice/${inv.id}" target="_blank">表示/印刷</a>
+            <button class="secondary" style="margin-left:8px;" onclick="sendMailForInvoice('${inv.id}', this)">メールで送付</button>
+          </td>
         </tr>`).join('') || '<tr><td colspan="5" class="muted">請求書はまだありません</td></tr>';
+    }
+
+    async function sendMailForInvoice(id, btn) {
+      btn.disabled = true;
+      btn.textContent = '送信中...';
+      try {
+        await api(`/api/admin/invoices/${id}/send`, { method: 'POST' });
+        await loadDetail();
+      } catch (e) {
+        alert(e.message);
+        btn.disabled = false;
+        btn.textContent = 'メールで送付';
+      }
     }
 
     document.getElementById('periodPicker').addEventListener('change', loadDetail);

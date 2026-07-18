@@ -76,13 +76,16 @@
 
       <div class="card">
         <h2>1. 勤務日数・稼働単価</h2>
-        <p class="muted">稼働単価・ガソリン代・その他稼働は、いずれも「勤務日数 × 日額単価」で自動計算されます。ガソリン代・その他稼働は消費税がかからず、金額がそのまま合計に加算されます。</p>
+        <p class="muted">稼働単価・ガソリン代は「勤務日数 × 日額単価」で自動計算されます。その他稼働だけは別に出勤日数を入力してください(その他稼働 = その他稼働の出勤日数 × 単価)。消費税は加算されず、金額はそのまま合計に反映されます。</p>
         <div class="row">
           <div><label>勤務日数</label><input type="number" id="workingDays" min="0" step="0.5"></div>
           <div><label>稼働単価(円/日)</label><input type="number" id="unitPrice" min="0" step="1"></div>
         </div>
         <div class="row">
           <div><label>ガソリン代 単価(円/日)</label><input type="number" id="gasolineUnitPrice" min="0" step="1"></div>
+        </div>
+        <div class="row">
+          <div><label>その他稼働 出勤日数</label><input type="number" id="otherWorkDays" min="0" step="0.5"></div>
           <div><label>その他稼働 単価(円/日)</label><input type="number" id="otherWorkUnitPrice" min="0" step="1"></div>
         </div>
         <label>備考</label>
@@ -251,6 +254,7 @@
       document.getElementById('workingDays').value = e ? e.working_days : '';
       document.getElementById('unitPrice').value = e ? e.unit_price : '';
       document.getElementById('gasolineUnitPrice').value = e ? (e.gasoline_unit_price || '') : '';
+      document.getElementById('otherWorkDays').value = e ? (e.other_work_days || '') : '';
       document.getElementById('otherWorkUnitPrice').value = e ? (e.other_work_unit_price || '') : '';
       document.getElementById('workNote').value = e ? e.note : '';
     }
@@ -264,6 +268,7 @@
           working_days: Number(document.getElementById('workingDays').value || 0),
           unit_price: Number(document.getElementById('unitPrice').value || 0),
           gasoline_unit_price: Number(document.getElementById('gasolineUnitPrice').value || 0),
+          other_work_days: Number(document.getElementById('otherWorkDays').value || 0),
           other_work_unit_price: Number(document.getElementById('otherWorkUnitPrice').value || 0),
           note: document.getElementById('workNote').value
         })

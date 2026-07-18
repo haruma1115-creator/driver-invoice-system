@@ -3,6 +3,8 @@ const db = require('../lib/db');
 const { requireAdmin } = require('../lib/auth');
 const { DEDUCTION_CATEGORIES, INCENTIVE_CATEGORIES, EXPENSE_CATEGORIES } = require('../lib/constants');
 const { buildInvoicePreview } = require('../lib/calc');
+const { renderInvoiceHtml } = require('../lib/invoiceTemplate');
+const mailer = require('../lib/mailer');
 
 function publicDriver(d) {
   if (!d) return null;
@@ -87,7 +89,7 @@ function register(app) {
   });
 
   app.put(`${P}/company-settings`, requireAdmin, async (req, res) => {
-    const allowed = ['company_name', 'postal_code', 'address', 'phone', 'representative_name', 'invoice_registration_number'];
+    const allowed = ['company_name', 'postal_code', 'address', 'phone', 'representative_name', 'invoice_registration_number', 'bank_email'];
     const result = await db.update((data) => {
       if (!data.company_settings) data.company_settings = {};
       for (const key of allowed) {
@@ -176,10 +178,7 @@ function register(app) {
       invoice.incentives_total = preview.incentivesTotal;
       invoice.expenses_total = preview.expensesTotal;
       invoice.deductions_total = preview.deductionsTotal;
-      invoice.taxable_base = preview.taxableBase;
-      invoice.tax_rate = preview.taxRate;
-      invoice.tax_amount = preview.taxAmount;
-      invoice.taxable_total = preview.taxableTotal;
+      invoice.gross_total = preview.grossTotal;
       invoice.net_payment = preview.netPayment;
       invoice.status = existing ? existing.status : 'issued';
       invoice.updated_at = new Date().toISOString();
@@ -197,7 +196,7 @@ function register(app) {
           quantity: preview.workEntry.working_days,
           unit_price: preview.workEntry.unit_price,
           amount: preview.salesAmount,
-          taxable: true
+          taxable: false
         });
         if (preview.gasolineAmount > 0) {
           lineItems.push({
@@ -218,8 +217,8 @@ function register(app) {
             invoice_id: invoice.id,
             section: 'non_taxed_addition',
             category: 'その他稼働',
-            description: `稼働 ${preview.workEntry.working_days}日 × 日額 ${preview.otherWorkUnitPrice.toLocaleString()}円`,
-            quantity: preview.workEntry.working_days,
+            description: `出勤 ${preview.otherWorkDays}日 × 日額 ${preview.otherWorkUnitPrice.toLocaleString()}円`,
+            quantity: preview.otherWorkDays,
             unit_price: preview.otherWorkUnitPrice,
             amount: preview.otherWorkAmount,
             taxable: false
@@ -229,13 +228,13 @@ function register(app) {
       for (const li of preview.incentiveLines) {
         lineItems.push({
           id: db.id(), invoice_id: invoice.id, section: 'incentive', category: li.category,
-          description: li.memo || li.category, quantity: 1, unit_price: li.amount, amount: li.amount, taxable: true
+          description: li.memo || li.category, quantity: 1, unit_price: li.amount, amount: li.amount, taxable: false
         });
       }
       for (const li of preview.expenseLines) {
         lineItems.push({
           id: db.id(), invoice_id: invoice.id, section: 'expense', category: li.category,
-          description: li.memo || li.category, quantity: 1, unit_price: li.amount, amount: li.amount, taxable: true
+          description: li.memo || li.category, quantity: 1, unit_price: li.amount, amount: li.amount, taxable: false
         });
       }
       for (const li of preview.deductionLines) {
@@ -288,6 +287,53 @@ function register(app) {
     });
     if (result.error) return res.status(404).json({ error: result.error });
     res.json(result);
+  });
+
+  // ---- 請求書のメール送付 ----
+
+  app.post(`${P}/invoices/:id/send`, requireAdmin, async (req, res) => {
+    const data = await db.load();
+    const invoice = data.invoices.find((i) => i.id === req.params.id);
+    if (!invoice) return res.status(404).json({ error: '請求書が見つかりません' });
+    const driver = data.drivers.find((d) => d.id === invoice.driver_id);
+    const lines = data.invoice_line_items.filter((l) => l.invoice_id === invoice.id);
+    const company = data.company_settings || {};
+
+    if (!company.bank_email) {
+      return res.status(400).json({ error: '会社情報設定で「銀行への送付先メールアドレス」を設定してください' });
+    }
+
+    const html = renderInvoiceHtml({
+      invoice,
+      driver,
+      company,
+      salesLines: lines.filter((l) => l.section === 'sales'),
+      incentiveLines: lines.filter((l) => l.section === 'incentive'),
+      expenseLines: lines.filter((l) => l.section === 'expense'),
+      deductionLines: lines.filter((l) => l.section === 'deduction'),
+      nonTaxedAdditionLines: lines.filter((l) => l.section === 'non_taxed_addition')
+    });
+
+    try {
+      await mailer.sendMail({
+        to: company.bank_email,
+        subject: `【請求書】${invoice.period} ${driver ? driver.name : ''}様分 (${invoice.invoice_number})`,
+        html
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+
+    const result = await db.update((d2) => {
+      const inv = d2.invoices.find((i) => i.id === req.params.id);
+      if (!inv) return { error: '請求書が見つかりません' };
+      inv.status = 'sent';
+      inv.sent_at = new Date().toISOString();
+      inv.updated_at = new Date().toISOString();
+      return { invoice: inv };
+    });
+    if (result.error) return res.status(404).json({ error: result.error });
+    res.json({ ok: true, invoice: result.invoice });
   });
 }
 
