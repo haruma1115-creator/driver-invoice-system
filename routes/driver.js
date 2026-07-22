@@ -271,6 +271,21 @@ function register(app) {
     res.json({ invoice, lines });
   });
 
+  // 「新着の明細があります」表示を消すための既読化(明細確認タブを開いたタイミングで呼び出す)
+  app.put(`${P}/invoices/mark-read`, requireDriver, async (req, res) => {
+    const result = await db.update((data) => {
+      let count = 0;
+      data.invoices.forEach((inv) => {
+        if (inv.driver_id === req.session.driverId && inv.driver_read === false) {
+          inv.driver_read = true;
+          count += 1;
+        }
+      });
+      return { count };
+    });
+    res.json(result);
+  });
+
   // 現在の入力状況からのプレビュー(未確定・請求書発行前の見込み額)
   app.get(`${P}/preview`, requireDriver, async (req, res) => {
     const { period } = req.query;

@@ -15,16 +15,48 @@
   </header>
 
   <main class="container">
-    <div class="greet-banner">いつも稼働ありがとうございます!🎉</div>
-
     <div class="tabs">
-      <button data-tab="profile" class="active">プロフィール</button>
-      <button data-tab="monthly">月次入力</button>
-      <button data-tab="invoices">支給明細</button>
+      <button data-tab="home" class="active">トップ</button>
+      <button data-tab="monthly">月次稼働報告</button>
+      <button data-tab="invoices">明細確認<span id="unreadBadgeTab" class="new-badge" style="display:none;"></span></button>
+      <button data-tab="profile">ドライバー情報管理</button>
     </div>
 
-    <!-- プロフィール -->
-    <section id="tab-profile">
+    <!-- トップ -->
+    <section id="tab-home">
+      <div class="greet-banner">いつも稼働ありがとうございます!🎉</div>
+
+      <div id="unreadHomeNotice" class="notice-banner" style="display:none; background:#e8f5e9; border-color:#a5d6a7; color:#1b5e20;">
+        📩 新着の明細があります。「明細確認」から確認できます。
+      </div>
+
+      <div class="menu-card" onclick="goToTab('monthly')">
+        <div class="menu-card-icon">📝</div>
+        <div class="menu-card-body">
+          <div class="menu-card-title">月次稼働報告</div>
+          <div class="menu-card-desc">稼働日数・単価の入力、経費の申請ができます</div>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="goToTab('invoices')">
+        <div class="menu-card-icon">📄</div>
+        <div class="menu-card-body">
+          <div class="menu-card-title">明細確認<span id="unreadBadgeHome" class="new-badge" style="display:none;"></span></div>
+          <div class="menu-card-desc">会社が確定した支給明細を確認できます</div>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="goToTab('profile')">
+        <div class="menu-card-icon">👤</div>
+        <div class="menu-card-body">
+          <div class="menu-card-title">ドライバー情報管理</div>
+          <div class="menu-card-desc">住所・銀行口座・インボイス登録番号などの管理</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ドライバー情報管理 -->
+    <section id="tab-profile" style="display:none;">
       <div class="card">
         <h2>ドライバー情報</h2>
         <form id="profileForm">
@@ -73,7 +105,7 @@
       </div>
     </section>
 
-    <!-- 月次入力 -->
+    <!-- 月次稼働報告 -->
     <section id="tab-monthly" style="display:none;">
       <div class="card">
         <h2>対象月</h2>
@@ -122,28 +154,7 @@
       </div>
 
       <div class="card">
-        <h2>2. 控除項目の申請</h2>
-        <p class="muted">車両代・事務手数料・車両修繕代・前借り分返済などを申請できます。金額は管理側で確認・調整されます。</p>
-        <div class="row">
-          <div>
-            <label>項目</label>
-            <select id="deductionCategory"></select>
-          </div>
-          <div><label>金額(円)</label><input type="number" id="deductionAmount" min="0" inputmode="numeric"></div>
-        </div>
-        <label>メモ</label>
-        <input type="text" id="deductionMemo">
-        <button class="secondary" onclick="addDeduction()">追加</button>
-        <div class="table-scroll">
-          <table id="deductionTable">
-            <thead><tr><th>項目</th><th>金額</th><th>メモ</th><th>登録元</th><th></th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>3. 経費の申請</h2>
+        <h2>2. 経費の申請</h2>
         <p class="muted">消耗品費・車両修繕など、立て替えた経費を申請できます。</p>
         <div class="row">
           <div>
@@ -164,7 +175,7 @@
       </div>
 
       <div class="card">
-        <h2>4. インセンティブ(会社側で付与)</h2>
+        <h2>3. インセンティブ(会社側で付与)</h2>
         <div class="table-scroll">
           <table id="incentiveTable">
             <thead><tr><th>項目</th><th>金額</th><th>メモ</th></tr></thead>
@@ -183,10 +194,11 @@
           <div class="box wide"><div class="label">お支払見込額</div><div class="value" id="prevNet">-</div></div>
         </div>
         <p class="muted">※ 確定した支給明細は管理側で発行されます。ここでの表示はあくまで現在の入力内容に基づく見込みです。</p>
+        <p class="notice-banner" style="margin-top:12px;">控除金額は会社側の入力後に確定し、それに応じてお振込み額が決定します。控除項目のご自身での入力は不要です。</p>
       </div>
     </section>
 
-    <!-- 支給明細 -->
+    <!-- 明細確認 -->
     <section id="tab-invoices" style="display:none;">
       <div class="card">
         <h2>確定した支給明細</h2>
@@ -218,16 +230,21 @@
       api('/api/driver/logout', { method: 'POST' }).then(() => location.href = '/driver/login.html');
     }
 
-    document.querySelectorAll('.tabs button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        ['profile', 'monthly', 'invoices'].forEach(t => {
-          document.getElementById('tab-' + t).style.display = (t === btn.dataset.tab) ? 'block' : 'none';
-        });
-        if (btn.dataset.tab === 'invoices') loadInvoices();
-        window.scrollTo(0, 0);
+    const TAB_NAMES = ['home', 'monthly', 'invoices', 'profile'];
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+      TAB_NAMES.forEach(t => {
+        document.getElementById('tab-' + t).style.display = (t === tabName) ? 'block' : 'none';
       });
+      if (tabName === 'invoices') loadInvoices();
+      window.scrollTo(0, 0);
+    }
+
+    function goToTab(tabName) { switchTab(tabName); }
+
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
     async function loadMe() {
@@ -274,8 +291,6 @@
     async function loadCategories() {
       const data = await api('/api/driver/categories');
       CATS = data;
-      const dSel = document.getElementById('deductionCategory');
-      dSel.innerHTML = CATS.DEDUCTION_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
       const eSel = document.getElementById('expenseCategory');
       eSel.innerHTML = CATS.EXPENSE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
     }
@@ -349,41 +364,6 @@
       loadPreview();
     }
 
-    async function loadDeductions() {
-      const period = currentPeriod();
-      const { items } = await api(`/api/driver/deductions?period=${period}`);
-      const tbody = document.querySelector('#deductionTable tbody');
-      tbody.innerHTML = items.map(it => `
-        <tr>
-          <td>${it.category}</td><td class="num">¥${it.amount.toLocaleString()}</td><td>${it.memo || ''}</td>
-          <td><span class="badge ${it.source === 'admin' ? 'blue' : 'gray'}">${it.source === 'admin' ? '管理側' : '自己申請'}</span></td>
-          <td>${it.source === 'driver' ? `<button class="danger" onclick="deleteDeduction('${it.id}')">削除</button>` : ''}</td>
-        </tr>`).join('') || '<tr><td colspan="5" class="muted">登録なし</td></tr>';
-    }
-
-    async function addDeduction() {
-      const period = currentPeriod();
-      await api('/api/driver/deductions', {
-        method: 'POST',
-        body: JSON.stringify({
-          period,
-          category: document.getElementById('deductionCategory').value,
-          amount: Number(document.getElementById('deductionAmount').value || 0),
-          memo: document.getElementById('deductionMemo').value
-        })
-      });
-      document.getElementById('deductionAmount').value = '';
-      document.getElementById('deductionMemo').value = '';
-      loadDeductions();
-      loadPreview();
-    }
-
-    async function deleteDeduction(id) {
-      await api(`/api/driver/deductions/${id}`, { method: 'DELETE' });
-      loadDeductions();
-      loadPreview();
-    }
-
     async function loadExpenses() {
       const period = currentPeriod();
       const { items } = await api(`/api/driver/expenses?period=${period}`);
@@ -445,30 +425,46 @@
       }
     }
 
-    let INVOICES_CACHE = [];
-
     async function loadInvoices() {
       const { invoices } = await api('/api/driver/invoices');
-      INVOICES_CACHE = invoices;
       const list = document.getElementById('invoiceList');
       if (!invoices.length) {
         list.innerHTML = '<p class="muted">支給明細はまだありません</p>';
-        return;
+      } else {
+        list.innerHTML = invoices.map(inv => `
+          <div class="invoice-item">
+            <div class="invoice-item-head" onclick="toggleInvoiceDetail('${inv.id}')">
+              <div>
+                <div class="invoice-item-period">${inv.period} ${inv.driver_read === false ? '<span class=\"new-badge\">新着</span>' : ''}</div>
+                <div class="muted">${inv.invoice_number}</div>
+              </div>
+              <div class="invoice-item-amount">
+                <div class="value">¥${inv.net_payment.toLocaleString()}</div>
+                <span class="badge ${inv.status === 'sent' ? 'green' : 'blue'}">${inv.status === 'sent' ? '送付済み' : '発行済み'}</span>
+              </div>
+            </div>
+            <div class="invoice-item-detail" id="detail-${inv.id}" style="display:none;"></div>
+          </div>`).join('');
       }
-      list.innerHTML = invoices.map(inv => `
-        <div class="invoice-item">
-          <div class="invoice-item-head" onclick="toggleInvoiceDetail('${inv.id}')">
-            <div>
-              <div class="invoice-item-period">${inv.period}</div>
-              <div class="muted">${inv.invoice_number}</div>
-            </div>
-            <div class="invoice-item-amount">
-              <div class="value">¥${inv.net_payment.toLocaleString()}</div>
-              <span class="badge ${inv.status === 'sent' ? 'green' : 'blue'}">${inv.status === 'sent' ? '送付済み' : '発行済み'}</span>
-            </div>
-          </div>
-          <div class="invoice-item-detail" id="detail-${inv.id}" style="display:none;"></div>
-        </div>`).join('');
+      // このタブを開いたタイミングで既読にする
+      try {
+        await api('/api/driver/invoices/mark-read', { method: 'PUT' });
+      } catch (e) { /* 無視 */ }
+      await refreshUnreadBadge();
+    }
+
+    async function refreshUnreadBadge() {
+      try {
+        const { invoices } = await api('/api/driver/invoices');
+        const unread = invoices.filter(i => i.driver_read === false).length;
+        const show = unread > 0;
+        ['unreadBadgeTab', 'unreadBadgeHome'].forEach(id => {
+          const el = document.getElementById(id);
+          el.style.display = show ? 'inline-block' : 'none';
+          el.textContent = show ? unread : '';
+        });
+        document.getElementById('unreadHomeNotice').style.display = show ? 'block' : 'none';
+      } catch (e) { /* 無視 */ }
     }
 
     async function toggleInvoiceDetail(id) {
@@ -504,7 +500,7 @@
     }
 
     async function reloadMonthlyTab() {
-      await Promise.all([loadWorkEntry(), loadDeductions(), loadExpenses(), loadIncentives(), loadPreview(), loadAlreadyIssuedNotice()]);
+      await Promise.all([loadWorkEntry(), loadExpenses(), loadIncentives(), loadPreview(), loadAlreadyIssuedNotice()]);
     }
 
     document.getElementById('periodPicker').addEventListener('change', reloadMonthlyTab);
@@ -515,6 +511,7 @@
       await loadMe();
       await loadCategories();
       await reloadMonthlyTab();
+      await refreshUnreadBadge();
     })();
   </script>
 </body>

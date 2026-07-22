@@ -187,6 +187,7 @@ function register(app) {
       invoice.deductions_total = preview.deductionsTotal;
       invoice.gross_total = preview.grossTotal;
       invoice.net_payment = preview.netPayment;
+      invoice.driver_read = false; // 発行・再発行のたびにドライバー側で「新着」扱いにする
       invoice.status = existing ? existing.status : 'issued';
       invoice.updated_at = new Date().toISOString();
 

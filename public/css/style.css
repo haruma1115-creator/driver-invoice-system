@@ -93,6 +93,23 @@ td.num, th.num { text-align: right; }
   line-height: 1.6;
 }
 
+/* ドライバー画面トップのメニューカード */
+.menu-card {
+  display: flex; align-items: center; gap: 16px; background: #fff; border-radius: 12px;
+  padding: 18px 20px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); cursor: pointer;
+  border: 1px solid #e6f0da; transition: transform 0.1s ease;
+}
+.menu-card:active { transform: scale(0.98); }
+.menu-card-icon { font-size: 30px; line-height: 1; }
+.menu-card-title { font-size: 16px; font-weight: bold; color: #33691e; }
+.menu-card-desc { font-size: 12.5px; color: #718096; margin-top: 4px; }
+
+/* 新着バッジ */
+.new-badge {
+  display: inline-block; background: #ff7043; color: #fff; font-size: 11px; font-weight: bold;
+  border-radius: 10px; padding: 1px 7px; margin-left: 6px; vertical-align: middle;
+}
+
 /* 「日数 × 単価 = 金額」を見せる計算行 */
 .calc-row {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
