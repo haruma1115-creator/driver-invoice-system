@@ -115,12 +115,14 @@ function register(app) {
       const workEntry = period ? data.work_entries.find((w) => w.driver_id === d.id && w.period === period) : null;
       const invoice = period ? data.invoices.find((i) => i.driver_id === d.id && i.period === period) : null;
       const preview = period ? buildInvoicePreview(data, d.id, period) : null;
+      const unreadMessages = data.messages.filter((m) => m.driver_id === d.id && m.sender === 'driver' && m.read_by_admin === false).length;
       return {
         ...publicDriver(d),
         sales_amount: preview ? preview.salesAmount : null,
         work_entry_status: workEntry ? workEntry.status : null,
         invoice_status: invoice ? invoice.status : null,
-        invoice_id: invoice ? invoice.id : null
+        invoice_id: invoice ? invoice.id : null,
+        unread_messages: unreadMessages
       };
     });
     res.json({ drivers });
@@ -141,6 +143,55 @@ function register(app) {
     }
     const invoices = data.invoices.filter((i) => i.driver_id === driver.id).sort((a, b) => (a.period < b.period ? 1 : -1));
     res.json({ driver: publicDriver(driver), preview, invoices });
+  });
+
+  // ---- ドライバーとのメッセージ ----
+
+  app.get(`${P}/drivers/:id/messages`, requireAdmin, async (req, res) => {
+    const data = await db.load();
+    const messages = data.messages
+      .filter((m) => m.driver_id === req.params.id)
+      .sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+    res.json({ messages });
+  });
+
+  app.post(`${P}/drivers/:id/messages`, requireAdmin, async (req, res) => {
+    const { body } = req.body || {};
+    if (!body || !body.trim()) return res.status(400).json({ error: 'メッセージを入力してください' });
+    const driverId = req.params.id;
+    const result = await db.update((data) => {
+      const driver = data.drivers.find((d) => d.id === driverId);
+      if (!driver) return { error: 'ドライバーが見つかりません' };
+      const message = {
+        id: db.id(),
+        driver_id: driverId,
+        sender: 'admin',
+        body: body.trim(),
+        read_by_driver: false,
+        read_by_admin: true,
+        created_at: new Date().toISOString()
+      };
+      data.messages.push(message);
+      return { message };
+    });
+    if (result.error) return res.status(404).json({ error: result.error });
+    res.json(result);
+  });
+
+  // ドライバー詳細画面を開いたタイミングで、そのドライバーからのメッセージを既読にする
+  app.put(`${P}/drivers/:id/messages/mark-read`, requireAdmin, async (req, res) => {
+    const driverId = req.params.id;
+    const result = await db.update((data) => {
+      let count = 0;
+      data.messages.forEach((m) => {
+        if (m.driver_id === driverId && m.sender === 'driver' && m.read_by_admin === false) {
+          m.read_by_admin = true;
+          count += 1;
+        }
+      });
+      return { count };
+    });
+    res.json(result);
   });
 
   app.put(`${P}/drivers/:id/deductions`, requireAdmin, replaceItemsForPeriod('deduction_items', DEDUCTION_CATEGORIES));

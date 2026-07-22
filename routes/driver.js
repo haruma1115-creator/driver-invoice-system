@@ -286,6 +286,47 @@ function register(app) {
     res.json(result);
   });
 
+  // ---- 会社(管理者)とのメッセージ ----
+
+  app.get(`${P}/messages`, requireDriver, async (req, res) => {
+    const data = await db.load();
+    const messages = data.messages
+      .filter((m) => m.driver_id === req.session.driverId)
+      .sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+    res.json({ messages });
+  });
+
+  app.post(`${P}/messages`, requireDriver, async (req, res) => {
+    const { body } = req.body || {};
+    if (!body || !body.trim()) return res.status(400).json({ error: 'メッセージを入力してください' });
+    const message = {
+      id: db.id(),
+      driver_id: req.session.driverId,
+      sender: 'driver',
+      body: body.trim(),
+      read_by_driver: true,
+      read_by_admin: false,
+      created_at: new Date().toISOString()
+    };
+    await db.update((data) => { data.messages.push(message); });
+    res.json({ message });
+  });
+
+  // メッセージタブを開いたタイミングで、管理者からのメッセージを既読にする
+  app.put(`${P}/messages/mark-read`, requireDriver, async (req, res) => {
+    const result = await db.update((data) => {
+      let count = 0;
+      data.messages.forEach((m) => {
+        if (m.driver_id === req.session.driverId && m.sender === 'admin' && m.read_by_driver === false) {
+          m.read_by_driver = true;
+          count += 1;
+        }
+      });
+      return { count };
+    });
+    res.json(result);
+  });
+
   // 現在の入力状況からのプレビュー(未確定・請求書発行前の見込み額)
   app.get(`${P}/preview`, requireDriver, async (req, res) => {
     const { period } = req.query;

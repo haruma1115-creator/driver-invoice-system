@@ -58,7 +58,7 @@
           <td class="num">${d.sales_amount != null ? '¥' + d.sales_amount.toLocaleString() : '-'}</td>
           <td>${d.work_entry_status ? `<span class="badge blue">${d.work_entry_status === 'invoiced' ? '請求済' : '入力済'}</span>` : '<span class="badge gray">未入力</span>'}</td>
           <td>${d.invoice_status ? `<span class="badge ${d.invoice_status === 'sent' ? 'green' : 'blue'}">${d.invoice_status === 'sent' ? '送付済み' : '発行済み'}</span>` : '<span class="badge gray">未発行</span>'}</td>
-          <td><a class="link" href="/admin/driver-detail.html?id=${d.id}&period=${period}">詳細・割り振り</a></td>
+          <td><a class="link" href="/admin/driver-detail.html?id=${d.id}&period=${period}">詳細・割り振り</a>${d.unread_messages > 0 ? `<span class="new-badge">${d.unread_messages}</span>` : ''}</td>
         </tr>`).join('') || '<tr><td colspan="6" class="muted">ドライバーが登録されていません</td></tr>';
     }
 

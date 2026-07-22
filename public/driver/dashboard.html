@@ -19,6 +19,7 @@
       <button data-tab="home" class="active">トップ</button>
       <button data-tab="monthly">月次稼働報告</button>
       <button data-tab="invoices">明細確認<span id="unreadBadgeTab" class="new-badge" style="display:none;"></span></button>
+      <button data-tab="message">メッセージ<span id="unreadMsgBadgeTab" class="new-badge" style="display:none;"></span></button>
       <button data-tab="profile">ドライバー情報管理</button>
     </div>
 
@@ -43,6 +44,14 @@
         <div class="menu-card-body">
           <div class="menu-card-title">明細確認<span id="unreadBadgeHome" class="new-badge" style="display:none;"></span></div>
           <div class="menu-card-desc">会社が確定した支給明細を確認できます</div>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="goToTab('message')">
+        <div class="menu-card-icon">💬</div>
+        <div class="menu-card-body">
+          <div class="menu-card-title">会社にメッセージ<span id="unreadMsgBadgeHome" class="new-badge" style="display:none;"></span></div>
+          <div class="menu-card-desc">会社(管理者)とメッセージのやり取りができます</div>
         </div>
       </div>
 
@@ -206,6 +215,19 @@
         <div id="invoiceList"></div>
       </div>
     </section>
+
+    <!-- メッセージ -->
+    <section id="tab-message" style="display:none;">
+      <div class="card">
+        <h2>会社(管理者)とのメッセージ</h2>
+        <div class="chat-thread" id="chatThread"></div>
+        <div class="chat-input-row">
+          <textarea id="chatInput" placeholder="メッセージを入力..."></textarea>
+          <button class="primary" onclick="sendMessage()">送信</button>
+        </div>
+        <span id="chatMsg" class="success-msg"></span>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -230,7 +252,7 @@
       api('/api/driver/logout', { method: 'POST' }).then(() => location.href = '/driver/login.html');
     }
 
-    const TAB_NAMES = ['home', 'monthly', 'invoices', 'profile'];
+    const TAB_NAMES = ['home', 'monthly', 'invoices', 'message', 'profile'];
 
     function switchTab(tabName) {
       document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
@@ -238,6 +260,7 @@
         document.getElementById('tab-' + t).style.display = (t === tabName) ? 'block' : 'none';
       });
       if (tabName === 'invoices') loadInvoices();
+      if (tabName === 'message') loadMessages();
       window.scrollTo(0, 0);
     }
 
@@ -465,6 +488,50 @@
         });
         document.getElementById('unreadHomeNotice').style.display = show ? 'block' : 'none';
       } catch (e) { /* 無視 */ }
+
+      try {
+        const { messages } = await api('/api/driver/messages');
+        const unreadMsg = messages.filter(m => m.sender === 'admin' && m.read_by_driver === false).length;
+        const showMsg = unreadMsg > 0;
+        ['unreadMsgBadgeTab', 'unreadMsgBadgeHome'].forEach(id => {
+          const el = document.getElementById(id);
+          el.style.display = showMsg ? 'inline-block' : 'none';
+          el.textContent = showMsg ? unreadMsg : '';
+        });
+      } catch (e) { /* 無視 */ }
+    }
+
+    function escHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    async function loadMessages() {
+      const { messages } = await api('/api/driver/messages');
+      const thread = document.getElementById('chatThread');
+      thread.innerHTML = messages.map(m => `
+        <div class="chat-bubble ${m.sender === 'driver' ? 'from-driver' : 'from-admin'}">
+          ${escHtml(m.body).replace(/\n/g, '<br>')}
+          <span class="chat-time">${new Date(m.created_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+        </div>`).join('') || '<p class="muted">まだメッセージはありません</p>';
+      thread.scrollTop = thread.scrollHeight;
+      try {
+        await api('/api/driver/messages/mark-read', { method: 'PUT' });
+      } catch (e) { /* 無視 */ }
+      await refreshUnreadBadge();
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const body = input.value;
+      if (!body.trim()) return;
+      try {
+        await api('/api/driver/messages', { method: 'POST', body: JSON.stringify({ body }) });
+        input.value = '';
+        await loadMessages();
+      } catch (e) {
+        document.getElementById('chatMsg').textContent = e.message;
+        setTimeout(() => document.getElementById('chatMsg').textContent = '', 3000);
+      }
     }
 
     async function toggleInvoiceDetail(id) {

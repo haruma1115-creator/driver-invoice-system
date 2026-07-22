@@ -79,6 +79,16 @@
         <tbody></tbody>
       </table>
     </div>
+
+    <div class="card">
+      <h2>ドライバーとのメッセージ</h2>
+      <div class="chat-thread" id="chatThread"></div>
+      <div class="chat-input-row">
+        <textarea id="chatInput" placeholder="メッセージを入力..."></textarea>
+        <button class="primary" onclick="sendMessage()">送信</button>
+      </div>
+      <span id="chatMsg" class="success-msg"></span>
+    </div>
   </main>
 
   <script>
@@ -221,6 +231,38 @@
       }
     }
 
+    function escHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    async function loadMessages() {
+      const { messages } = await api(`/api/admin/drivers/${driverId}/messages`);
+      const thread = document.getElementById('chatThread');
+      thread.innerHTML = messages.map(m => `
+        <div class="chat-bubble ${m.sender === 'admin' ? 'from-driver' : 'from-admin'}">
+          ${escHtml(m.body).replace(/\n/g, '<br>')}
+          <span class="chat-time">${new Date(m.created_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+        </div>`).join('') || '<p class="muted">まだメッセージはありません</p>';
+      thread.scrollTop = thread.scrollHeight;
+      try {
+        await api(`/api/admin/drivers/${driverId}/messages/mark-read`, { method: 'PUT' });
+      } catch (e) { /* 無視 */ }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const body = input.value;
+      if (!body.trim()) return;
+      try {
+        await api(`/api/admin/drivers/${driverId}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
+        input.value = '';
+        await loadMessages();
+      } catch (e) {
+        document.getElementById('chatMsg').textContent = e.message;
+        setTimeout(() => document.getElementById('chatMsg').textContent = '', 3000);
+      }
+    }
+
     document.getElementById('periodPicker').addEventListener('change', loadDetail);
 
     (async function init() {
@@ -228,6 +270,7 @@
       document.getElementById('periodPicker').value = params.get('period') || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       await loadCategories();
       await loadDetail();
+      await loadMessages();
     })();
   </script>
 </body>
