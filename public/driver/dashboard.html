@@ -2,10 +2,11 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>ドライバー画面</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="driver-app">
   <header class="app-header">
     <div class="title">ドライバー画面 <span id="driverNameLabel" class="muted"></span></div>
     <nav>
@@ -17,7 +18,7 @@
     <div class="tabs">
       <button data-tab="profile" class="active">プロフィール</button>
       <button data-tab="monthly">月次入力</button>
-      <button data-tab="invoices">請求書一覧</button>
+      <button data-tab="invoices">支給明細</button>
     </div>
 
     <!-- プロフィール -->
@@ -29,6 +30,9 @@
             <div><label>氏名</label><input type="text" id="p_name"></div>
             <div><label>フリガナ</label><input type="text" id="p_name_kana"></div>
           </div>
+          <label>メールアドレス</label>
+          <input type="text" id="p_email" disabled style="background:#f0f0f0;">
+          <p class="muted">通知メールの送付先として使用します。変更したい場合は管理者にご連絡ください。</p>
           <label>郵便番号</label>
           <input type="text" id="p_postal_code" placeholder="000-0000">
           <label>住所</label>
@@ -75,18 +79,23 @@
       </div>
 
       <div class="card">
-        <h2>1. 勤務日数・稼働単価</h2>
-        <p class="muted">稼働単価・ガソリン代は「勤務日数 × 日額単価」で自動計算されます。その他稼働だけは別に出勤日数を入力してください(その他稼働 = その他稼働の出勤日数 × 単価)。消費税は加算されず、金額はそのまま合計に反映されます。</p>
+        <h2>1. 稼働日数・単価</h2>
+        <p class="muted">
+          全日勤務: 全日勤務日数 × 日当<br>
+          半日勤務: 半日勤務日数 × 半日単価(固定 ¥<span id="halfDayRateLabel">7,500</span>)<br>
+          その他(自転車など): その他稼働日数 × その他単価<br>
+          ※ 消費税は加算されず、金額はそのまま合計に反映されます。
+        </p>
         <div class="row">
-          <div><label>勤務日数</label><input type="number" id="workingDays" min="0" step="0.5"></div>
-          <div><label>稼働単価(円/日)</label><input type="number" id="unitPrice" min="0" step="1"></div>
+          <div><label>全日勤務日数</label><input type="number" id="fullDays" min="0" step="0.5" inputmode="decimal"></div>
+          <div><label>日当(円/日)</label><input type="number" id="unitPrice" min="0" step="1" inputmode="numeric"></div>
         </div>
         <div class="row">
-          <div><label>ガソリン代 単価(円/日)</label><input type="number" id="gasolineUnitPrice" min="0" step="1"></div>
+          <div><label>半日勤務日数</label><input type="number" id="halfDays" min="0" step="0.5" inputmode="decimal"></div>
         </div>
         <div class="row">
-          <div><label>その他稼働 出勤日数</label><input type="number" id="otherWorkDays" min="0" step="0.5"></div>
-          <div><label>その他稼働 単価(円/日)</label><input type="number" id="otherWorkUnitPrice" min="0" step="1"></div>
+          <div><label>その他(自転車など) 出勤日数</label><input type="number" id="otherWorkDays" min="0" step="0.5" inputmode="decimal"></div>
+          <div><label>その他 単価(円/日)</label><input type="number" id="otherWorkUnitPrice" min="0" step="1" inputmode="numeric"></div>
         </div>
         <label>備考</label>
         <input type="text" id="workNote">
@@ -102,15 +111,17 @@
             <label>項目</label>
             <select id="deductionCategory"></select>
           </div>
-          <div><label>金額(円)</label><input type="number" id="deductionAmount" min="0"></div>
+          <div><label>金額(円)</label><input type="number" id="deductionAmount" min="0" inputmode="numeric"></div>
         </div>
         <label>メモ</label>
         <input type="text" id="deductionMemo">
         <button class="secondary" onclick="addDeduction()">追加</button>
-        <table id="deductionTable">
-          <thead><tr><th>項目</th><th>金額</th><th>メモ</th><th>登録元</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="table-scroll">
+          <table id="deductionTable">
+            <thead><tr><th>項目</th><th>金額</th><th>メモ</th><th>登録元</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="card">
@@ -121,46 +132,48 @@
             <label>項目</label>
             <select id="expenseCategory"></select>
           </div>
-          <div><label>金額(円)</label><input type="number" id="expenseAmount" min="0"></div>
+          <div><label>金額(円)</label><input type="number" id="expenseAmount" min="0" inputmode="numeric"></div>
         </div>
         <label>メモ</label>
         <input type="text" id="expenseMemo">
         <button class="secondary" onclick="addExpense()">追加</button>
-        <table id="expenseTable">
-          <thead><tr><th>項目</th><th>金額</th><th>メモ</th><th>登録元</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="table-scroll">
+          <table id="expenseTable">
+            <thead><tr><th>項目</th><th>金額</th><th>メモ</th><th>登録元</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="card">
         <h2>4. インセンティブ(会社側で付与)</h2>
-        <table id="incentiveTable">
-          <thead><tr><th>項目</th><th>金額</th><th>メモ</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="table-scroll">
+          <table id="incentiveTable">
+            <thead><tr><th>項目</th><th>金額</th><th>メモ</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="card">
         <h2>今月の見込み金額</h2>
-        <div class="summary-grid" style="grid-template-columns: repeat(5, 1fr);">
-          <div class="box"><div class="label">売上(稼働費)</div><div class="value" id="prevSales">-</div></div>
-          <div class="box"><div class="label">ガソリン代+その他稼働</div><div class="value" id="prevNonTaxed">-</div></div>
+        <div class="summary-grid mobile-grid-2">
+          <div class="box"><div class="label">稼働費(全日+半日)</div><div class="value" id="prevSales">-</div></div>
+          <div class="box"><div class="label">その他稼働</div><div class="value" id="prevOther">-</div></div>
           <div class="box"><div class="label">インセンティブ+経費</div><div class="value" id="prevBonus">-</div></div>
           <div class="box"><div class="label">控除合計</div><div class="value" id="prevDeduction">-</div></div>
-          <div class="box"><div class="label">お支払見込額</div><div class="value" id="prevNet">-</div></div>
+          <div class="box wide"><div class="label">お支払見込額</div><div class="value" id="prevNet">-</div></div>
         </div>
-        <p class="muted">※ 確定した請求書は管理側で発行されます。ここでの表示はあくまで現在の入力内容に基づく見込みです。</p>
+        <p class="muted">※ 確定した支給明細は管理側で発行されます。ここでの表示はあくまで現在の入力内容に基づく見込みです。</p>
       </div>
     </section>
 
-    <!-- 請求書一覧 -->
+    <!-- 支給明細 -->
     <section id="tab-invoices" style="display:none;">
       <div class="card">
-        <h2>発行済み請求書</h2>
-        <table id="invoiceTable">
-          <thead><tr><th>対象月</th><th>請求書番号</th><th class="num">お支払金額</th><th>ステータス</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <h2>確定した支給明細</h2>
+        <p class="muted">会社側が内容を確定すると、ここに表示され、登録メールアドレスにも通知が届きます。</p>
+        <div id="invoiceList"></div>
       </div>
     </section>
   </main>
@@ -195,6 +208,7 @@
           document.getElementById('tab-' + t).style.display = (t === btn.dataset.tab) ? 'block' : 'none';
         });
         if (btn.dataset.tab === 'invoices') loadInvoices();
+        window.scrollTo(0, 0);
       });
     });
 
@@ -203,6 +217,7 @@
       document.getElementById('driverNameLabel').textContent = `(${driver.name} さん)`;
       document.getElementById('p_name').value = driver.name || '';
       document.getElementById('p_name_kana').value = driver.name_kana || '';
+      document.getElementById('p_email').value = driver.email || '';
       document.getElementById('p_postal_code').value = driver.postal_code || '';
       document.getElementById('p_address').value = driver.address || '';
       document.getElementById('p_phone').value = driver.phone || '';
@@ -251,9 +266,9 @@
       const period = currentPeriod();
       const { entries } = await api(`/api/driver/work-entries?period=${period}`);
       const e = entries[0];
-      document.getElementById('workingDays').value = e ? e.working_days : '';
+      document.getElementById('fullDays').value = e ? (e.full_days != null ? e.full_days : e.working_days || '') : '';
+      document.getElementById('halfDays').value = e ? (e.half_days || '') : '';
       document.getElementById('unitPrice').value = e ? e.unit_price : '';
-      document.getElementById('gasolineUnitPrice').value = e ? (e.gasoline_unit_price || '') : '';
       document.getElementById('otherWorkDays').value = e ? (e.other_work_days || '') : '';
       document.getElementById('otherWorkUnitPrice').value = e ? (e.other_work_unit_price || '') : '';
       document.getElementById('workNote').value = e ? e.note : '';
@@ -265,9 +280,9 @@
         method: 'POST',
         body: JSON.stringify({
           period,
-          working_days: Number(document.getElementById('workingDays').value || 0),
+          full_days: Number(document.getElementById('fullDays').value || 0),
+          half_days: Number(document.getElementById('halfDays').value || 0),
           unit_price: Number(document.getElementById('unitPrice').value || 0),
-          gasoline_unit_price: Number(document.getElementById('gasolineUnitPrice').value || 0),
           other_work_days: Number(document.getElementById('otherWorkDays').value || 0),
           other_work_unit_price: Number(document.getElementById('otherWorkUnitPrice').value || 0),
           note: document.getElementById('workNote').value
@@ -361,29 +376,75 @@
       try {
         const { preview } = await api(`/api/driver/preview?period=${period}`);
         document.getElementById('prevSales').textContent = `¥${preview.salesAmount.toLocaleString()}`;
-        document.getElementById('prevNonTaxed').textContent = `¥${preview.nonTaxedAdditionsTotal.toLocaleString()}`;
+        document.getElementById('prevOther').textContent = `¥${preview.otherWorkAmount.toLocaleString()}`;
         document.getElementById('prevBonus').textContent = `¥${(preview.incentivesTotal + preview.expensesTotal).toLocaleString()}`;
         document.getElementById('prevDeduction').textContent = `−¥${preview.deductionsTotal.toLocaleString()}`;
         document.getElementById('prevNet').textContent = `¥${preview.netPayment.toLocaleString()}`;
       } catch (e) {
         document.getElementById('prevSales').textContent = '-';
-        document.getElementById('prevNonTaxed').textContent = '-';
+        document.getElementById('prevOther').textContent = '-';
         document.getElementById('prevBonus').textContent = '-';
         document.getElementById('prevDeduction').textContent = '-';
         document.getElementById('prevNet').textContent = '-';
       }
     }
 
+    let INVOICES_CACHE = [];
+
     async function loadInvoices() {
       const { invoices } = await api('/api/driver/invoices');
-      const tbody = document.querySelector('#invoiceTable tbody');
-      tbody.innerHTML = invoices.map(inv => `
-        <tr>
-          <td>${inv.period}</td><td>${inv.invoice_number}</td>
-          <td class="num">¥${inv.net_payment.toLocaleString()}</td>
-          <td><span class="badge ${inv.status === 'sent' ? 'green' : 'blue'}">${inv.status === 'sent' ? '送付済み' : '発行済み'}</span></td>
-          <td><a class="link" href="/print/invoice/${inv.id}" target="_blank">表示/印刷</a></td>
-        </tr>`).join('') || '<tr><td colspan="5" class="muted">請求書はまだありません</td></tr>';
+      INVOICES_CACHE = invoices;
+      const list = document.getElementById('invoiceList');
+      if (!invoices.length) {
+        list.innerHTML = '<p class="muted">支給明細はまだありません</p>';
+        return;
+      }
+      list.innerHTML = invoices.map(inv => `
+        <div class="invoice-item">
+          <div class="invoice-item-head" onclick="toggleInvoiceDetail('${inv.id}')">
+            <div>
+              <div class="invoice-item-period">${inv.period}</div>
+              <div class="muted">${inv.invoice_number}</div>
+            </div>
+            <div class="invoice-item-amount">
+              <div class="value">¥${inv.net_payment.toLocaleString()}</div>
+              <span class="badge ${inv.status === 'sent' ? 'green' : 'blue'}">${inv.status === 'sent' ? '送付済み' : '発行済み'}</span>
+            </div>
+          </div>
+          <div class="invoice-item-detail" id="detail-${inv.id}" style="display:none;"></div>
+        </div>`).join('');
+    }
+
+    async function toggleInvoiceDetail(id) {
+      const el = document.getElementById(`detail-${id}`);
+      if (!el) return;
+      if (el.style.display !== 'none') { el.style.display = 'none'; return; }
+      if (!el.dataset.loaded) {
+        try {
+          const { invoice, lines } = await api(`/api/driver/invoices/${id}`);
+          const rows = (section, label) => lines.filter(l => l.section === section).map(l => `
+            <tr><td>${label}</td><td>${l.category}</td><td class="num">¥${l.amount.toLocaleString()}</td></tr>`).join('');
+          el.innerHTML = `
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>区分</th><th>内容</th><th class="num">金額</th></tr></thead>
+                <tbody>
+                  ${rows('sales', '稼働費')}
+                  ${rows('other_work', 'その他稼働')}
+                  ${rows('incentive', 'インセンティブ')}
+                  ${rows('expense', '経費')}
+                  ${rows('deduction', '控除')}
+                </tbody>
+              </table>
+            </div>
+            <p style="margin-top:10px;"><a class="link" href="/print/invoice/${invoice.id}" target="_blank">印刷用の請求書を表示</a></p>
+          `;
+          el.dataset.loaded = '1';
+        } catch (e) {
+          el.innerHTML = `<p class="error-msg">${e.message}</p>`;
+        }
+      }
+      el.style.display = 'block';
     }
 
     async function reloadMonthlyTab() {

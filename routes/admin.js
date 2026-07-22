@@ -1,10 +1,16 @@
 const passwords = require('../lib/passwords');
 const db = require('../lib/db');
 const { requireAdmin } = require('../lib/auth');
-const { DEDUCTION_CATEGORIES, INCENTIVE_CATEGORIES, EXPENSE_CATEGORIES } = require('../lib/constants');
+const { DEDUCTION_CATEGORIES, INCENTIVE_CATEGORIES, EXPENSE_CATEGORIES, HALF_DAY_RATE } = require('../lib/constants');
 const { buildInvoicePreview } = require('../lib/calc');
-const { renderInvoiceHtml } = require('../lib/invoiceTemplate');
+const { renderInvoiceHtml, renderDriverNotificationHtml } = require('../lib/invoiceTemplate');
 const mailer = require('../lib/mailer');
+
+// リクエストからサイトの公開URL(https://xxxx.onrender.com など)を組み立てる
+function baseUrl(req) {
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  return `${proto}://${req.headers.host}`;
+}
 
 function publicDriver(d) {
   if (!d) return null;
@@ -108,9 +114,10 @@ function register(app) {
     const drivers = data.drivers.map((d) => {
       const workEntry = period ? data.work_entries.find((w) => w.driver_id === d.id && w.period === period) : null;
       const invoice = period ? data.invoices.find((i) => i.driver_id === d.id && i.period === period) : null;
+      const preview = period ? buildInvoicePreview(data, d.id, period) : null;
       return {
         ...publicDriver(d),
-        sales_amount: workEntry ? Math.round(workEntry.working_days * workEntry.unit_price) : null,
+        sales_amount: preview ? preview.salesAmount : null,
         work_entry_status: workEntry ? workEntry.status : null,
         invoice_status: invoice ? invoice.status : null,
         invoice_id: invoice ? invoice.id : null
@@ -172,9 +179,9 @@ function register(app) {
       };
       invoice.issue_date = new Date().toISOString().slice(0, 10);
       invoice.sales_amount = preview.salesAmount;
-      invoice.gasoline_amount = preview.gasolineAmount;
+      invoice.full_day_amount = preview.fullDayAmount;
+      invoice.half_day_amount = preview.halfDayAmount;
       invoice.other_work_amount = preview.otherWorkAmount;
-      invoice.non_taxed_additions_total = preview.nonTaxedAdditionsTotal;
       invoice.incentives_total = preview.incentivesTotal;
       invoice.expenses_total = preview.expensesTotal;
       invoice.deductions_total = preview.deductionsTotal;
@@ -187,27 +194,29 @@ function register(app) {
 
       const lineItems = [];
       if (preview.workEntry) {
-        lineItems.push({
-          id: db.id(),
-          invoice_id: invoice.id,
-          section: 'sales',
-          category: '稼働費',
-          description: `稼働 ${preview.workEntry.working_days}日 × 単価 ${preview.workEntry.unit_price.toLocaleString()}円`,
-          quantity: preview.workEntry.working_days,
-          unit_price: preview.workEntry.unit_price,
-          amount: preview.salesAmount,
-          taxable: false
-        });
-        if (preview.gasolineAmount > 0) {
+        if (preview.fullDayAmount > 0 || preview.fullDays > 0) {
           lineItems.push({
             id: db.id(),
             invoice_id: invoice.id,
-            section: 'non_taxed_addition',
-            category: 'ガソリン代',
-            description: `稼働 ${preview.workEntry.working_days}日 × 日額 ${preview.gasolineUnitPrice.toLocaleString()}円`,
-            quantity: preview.workEntry.working_days,
-            unit_price: preview.gasolineUnitPrice,
-            amount: preview.gasolineAmount,
+            section: 'sales',
+            category: '全日勤務',
+            description: `全日勤務 ${preview.fullDays}日 × 日当 ${preview.unitPrice.toLocaleString()}円`,
+            quantity: preview.fullDays,
+            unit_price: preview.unitPrice,
+            amount: preview.fullDayAmount,
+            taxable: false
+          });
+        }
+        if (preview.halfDayAmount > 0 || preview.halfDays > 0) {
+          lineItems.push({
+            id: db.id(),
+            invoice_id: invoice.id,
+            section: 'sales',
+            category: '半日勤務',
+            description: `半日勤務 ${preview.halfDays}日 × 半日単価 ${HALF_DAY_RATE.toLocaleString()}円`,
+            quantity: preview.halfDays,
+            unit_price: HALF_DAY_RATE,
+            amount: preview.halfDayAmount,
             taxable: false
           });
         }
@@ -215,7 +224,7 @@ function register(app) {
           lineItems.push({
             id: db.id(),
             invoice_id: invoice.id,
-            section: 'non_taxed_addition',
+            section: 'other_work',
             category: 'その他稼働',
             description: `出勤 ${preview.otherWorkDays}日 × 日額 ${preview.otherWorkUnitPrice.toLocaleString()}円`,
             quantity: preview.otherWorkDays,
@@ -252,7 +261,34 @@ function register(app) {
     });
 
     if (result.error) return res.status(400).json({ error: result.error });
-    res.json(result);
+
+    // ドライバー本人へ「支給明細が確定しました」の通知メールを自動送信する(失敗しても請求書発行自体は成功扱いとする)
+    let mailNotified = false;
+    let mailError = null;
+    try {
+      const data2 = await db.load();
+      const driver2 = data2.drivers.find((d) => d.id === req.params.id);
+      const company2 = data2.company_settings || {};
+      if (driver2 && driver2.email) {
+        const html = renderDriverNotificationHtml({
+          invoice: result.invoice,
+          driver: driver2,
+          company: company2,
+          loginUrl: `${baseUrl(req)}/driver/login.html`
+        });
+        await mailer.sendMail({
+          to: driver2.email,
+          subject: `【支給明細のお知らせ】${period}分 (${result.invoice.invoice_number})`,
+          html
+        });
+        mailNotified = true;
+      }
+    } catch (e) {
+      mailError = e.message;
+      console.error('ドライバーへの通知メール送信に失敗しました:', e.message);
+    }
+
+    res.json({ ...result, mail_notified: mailNotified, mail_error: mailError });
   });
 
   app.get(`${P}/invoices`, requireAdmin, async (req, res) => {
@@ -311,7 +347,7 @@ function register(app) {
       incentiveLines: lines.filter((l) => l.section === 'incentive'),
       expenseLines: lines.filter((l) => l.section === 'expense'),
       deductionLines: lines.filter((l) => l.section === 'deduction'),
-      nonTaxedAdditionLines: lines.filter((l) => l.section === 'non_taxed_addition')
+      otherWorkLines: lines.filter((l) => l.section === 'other_work')
     });
 
     try {

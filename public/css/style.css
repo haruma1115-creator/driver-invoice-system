@@ -63,4 +63,54 @@ td.num, th.num { text-align: right; }
 .summary-grid .box { background: #fff; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 .summary-grid .box .label { font-size: 12px; color: #718096; }
 .summary-grid .box .value { font-size: 20px; font-weight: bold; margin-top: 4px; }
+.summary-grid .box.wide { grid-column: 1 / -1; }
 a.plain { color: inherit; text-decoration: none; }
+
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* 支給明細(ドライバー画面)のカード表示 */
+.invoice-item { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 12px; overflow: hidden; }
+.invoice-item-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; cursor: pointer; }
+.invoice-item-period { font-size: 15px; font-weight: bold; }
+.invoice-item-amount { text-align: right; }
+.invoice-item-amount .value { font-size: 17px; font-weight: bold; margin-bottom: 4px; }
+.invoice-item-detail { padding: 0 16px 16px; border-top: 1px solid #edf2f7; }
+
+/* ==================== モバイル(スマホ)向けレイアウト ==================== */
+@media (max-width: 700px) {
+  main.container { padding: 12px 12px 84px; }
+  .card { padding: 16px; margin-bottom: 14px; }
+  .row { flex-direction: column; gap: 0; }
+  .row > div { margin-bottom: 0; }
+  .center-box { max-width: 100%; margin: 24px auto; padding: 24px 20px; border-radius: 0; box-shadow: none; }
+
+  input[type=text], input[type=email], input[type=password], input[type=number], input[type=month], select, textarea {
+    font-size: 16px; /* iOSでの自動ズームを防止 */
+    padding: 11px 12px;
+  }
+  button.primary, button.secondary { min-height: 44px; }
+  section#tab-monthly button.primary, section#tab-monthly form button.primary, .center-box button.primary {
+    width: 100%;
+  }
+
+  .summary-grid, .summary-grid.mobile-grid-2 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .summary-grid .box { padding: 10px 12px; }
+  .summary-grid .box .value { font-size: 16px; }
+
+  table { font-size: 12px; }
+  th, td { padding: 6px 8px; }
+
+  header.app-header { padding: 12px 16px; }
+  header.app-header .title { font-size: 15px; }
+
+  /* ドライバー画面のタブは画面下部に固定表示するボトムナビにする */
+  body.driver-app .tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+    display: flex; gap: 0; margin: 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: #fff; border-top: 1px solid #e2e8f0; box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+  }
+  body.driver-app .tabs button {
+    flex: 1; border-radius: 8px; padding: 10px 4px; font-size: 12px;
+  }
+  body.driver-app .tabs button.active { background: #2b6cb0; color: #fff; }
+}

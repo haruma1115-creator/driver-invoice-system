@@ -112,18 +112,18 @@ function register(app) {
 
   app.post(`${P}/work-entries`, requireDriver, async (req, res) => {
     const {
-      period, working_days, unit_price, gasoline_unit_price,
+      period, full_days, half_days, unit_price,
       other_work_unit_price, other_work_days, note
     } = req.body || {};
-    if (!period || working_days == null || unit_price == null) {
-      return res.status(400).json({ error: '対象月・勤務日数・稼働単価は必須です' });
+    if (!period || full_days == null || unit_price == null) {
+      return res.status(400).json({ error: '対象月・全日勤務日数・日当は必須です' });
     }
     const result = await db.update((data) => {
       let entry = data.work_entries.find((w) => w.driver_id === req.session.driverId && w.period === period);
       if (entry) {
-        entry.working_days = Number(working_days);
+        entry.full_days = Number(full_days);
+        entry.half_days = Number(half_days || 0);
         entry.unit_price = Number(unit_price);
-        entry.gasoline_unit_price = Number(gasoline_unit_price || 0);
         entry.other_work_unit_price = Number(other_work_unit_price || 0);
         entry.other_work_days = Number(other_work_days || 0);
         entry.note = note || '';
@@ -133,9 +133,9 @@ function register(app) {
           id: db.id(),
           driver_id: req.session.driverId,
           period,
-          working_days: Number(working_days),
+          full_days: Number(full_days),
+          half_days: Number(half_days || 0),
           unit_price: Number(unit_price),
-          gasoline_unit_price: Number(gasoline_unit_price || 0),
           other_work_unit_price: Number(other_work_unit_price || 0),
           other_work_days: Number(other_work_days || 0),
           note: note || '',

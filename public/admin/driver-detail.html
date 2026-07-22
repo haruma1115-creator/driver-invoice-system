@@ -24,7 +24,7 @@
 
     <div class="summary-grid" style="grid-template-columns: repeat(5, 1fr);">
       <div class="box"><div class="label">売上(稼働費)</div><div class="value" id="sSales">-</div></div>
-      <div class="box"><div class="label">ガソリン代+その他稼働</div><div class="value" id="sNonTaxed">-</div></div>
+      <div class="box"><div class="label">その他稼働</div><div class="value" id="sNonTaxed">-</div></div>
       <div class="box"><div class="label">インセンティブ+経費</div><div class="value" id="sBonus">-</div></div>
       <div class="box"><div class="label">控除合計</div><div class="value" id="sDeduction">-</div></div>
       <div class="box"><div class="label">お支払見込額</div><div class="value" id="sNet">-</div></div>
@@ -68,9 +68,9 @@
     </div>
 
     <div class="card">
-      <h2>請求書の発行</h2>
-      <p class="muted">上記の内容を保存してから発行してください。既に発行済みの場合は内容を上書きして再生成します。</p>
-      <button class="primary" onclick="generateInvoice()">この月の請求書を発行する</button>
+      <h2>請求書(支給明細)の発行</h2>
+      <p class="muted">上記の内容を保存してから発行してください。既に発行済みの場合は内容を上書きして再生成します。発行するとドライバーのメールアドレスに支給明細確定の通知が自動送信されます。</p>
+      <button class="primary" onclick="generateInvoice()">この月の請求書(支給明細)を発行する</button>
       <span id="invoiceMsg" class="success-msg"></span>
       <table id="invoiceHistoryTable" style="margin-top:16px;">
         <thead><tr><th>対象月</th><th>請求書番号</th><th class="num">お支払金額</th><th>ステータス</th><th></th></tr></thead>
@@ -137,9 +137,11 @@
     async function generateInvoice() {
       const period = currentPeriod();
       try {
-        await api(`/api/admin/drivers/${driverId}/invoices`, { method: 'POST', body: JSON.stringify({ period }) });
-        document.getElementById('invoiceMsg').textContent = '請求書を発行しました';
-        setTimeout(() => document.getElementById('invoiceMsg').textContent = '', 3000);
+        const result = await api(`/api/admin/drivers/${driverId}/invoices`, { method: 'POST', body: JSON.stringify({ period }) });
+        document.getElementById('invoiceMsg').textContent = result.mail_notified
+          ? '支給明細を発行し、ドライバーに通知メールを送信しました'
+          : '支給明細を発行しました(ドライバーへの通知メールは送信されませんでした)';
+        setTimeout(() => document.getElementById('invoiceMsg').textContent = '', 5000);
         await loadDetail();
       } catch (e) {
         alert(e.message);
@@ -165,7 +167,7 @@
 
       if (preview) {
         document.getElementById('sSales').textContent = `¥${preview.salesAmount.toLocaleString()}`;
-        document.getElementById('sNonTaxed').textContent = `¥${preview.nonTaxedAdditionsTotal.toLocaleString()}`;
+        document.getElementById('sNonTaxed').textContent = `¥${preview.otherWorkAmount.toLocaleString()}`;
         document.getElementById('sBonus').textContent = `¥${(preview.incentivesTotal + preview.expensesTotal).toLocaleString()}`;
         document.getElementById('sDeduction').textContent = `−¥${preview.deductionsTotal.toLocaleString()}`;
         document.getElementById('sNet').textContent = `¥${preview.netPayment.toLocaleString()}`;

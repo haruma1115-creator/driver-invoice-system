@@ -25,7 +25,7 @@ function register(app) {
       incentiveLines: lines.filter((l) => l.section === 'incentive'),
       expenseLines: lines.filter((l) => l.section === 'expense'),
       deductionLines: lines.filter((l) => l.section === 'deduction'),
-      nonTaxedAdditionLines: lines.filter((l) => l.section === 'non_taxed_addition')
+      otherWorkLines: lines.filter((l) => l.section === 'other_work')
     });
     res.html(html);
   });
