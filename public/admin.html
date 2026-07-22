@@ -38,7 +38,8 @@
         <h2 style="margin:0;">シフト表(クリックでセル編集: ◯→C1→C2→×)</h2>
         <button class="btn accent" id="generateBtn">⚙ この月を自動シフト作成<small>希望休・必要人数・指示から生成</small></button>
       </div>
-      <div id="boardWrap" style="margin-top:14px;"></div>
+      <div class="driver-filter" id="driverFilter" style="margin-top:14px;"></div>
+      <div id="boardWrap"></div>
       <div class="legend">
         <span><b class="sym">◯</b> 終日勤務</span>
         <span><b class="sym">C1</b> 半日(午前)</span>
@@ -89,10 +90,18 @@
     <div class="card">
       <h2>ドライバー管理</h2>
       <p class="note">希望休の提出状況にかかわらず、いつでもドライバーの追加・削除ができます。</p>
+      <p class="note">各ドライバーの🔑ボタンからログイン用パスワードを設定できます(未設定のドライバーはドライバー用画面にログインできません)。</p>
       <div class="row">
         <div class="field" style="flex:1;"><label>ドライバー名を追加</label><input type="text" id="newDriverName" placeholder="例)鈴木 一郎"></div>
         <button class="btn ghost" id="addDriverBtn">追加</button>
       </div>
+
+      <h3>まとめて追加(1行に1名)</h3>
+      <div class="field">
+        <textarea id="bulkDriverNames" rows="6" style="padding:10px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:inherit; resize:vertical;" placeholder="中村 愛藍&#10;小山 諒&#10;昆 翼"></textarea>
+      </div>
+      <button class="btn ghost" id="bulkAddDriverBtn" style="margin-top:8px;">まとめて追加する</button>
+
       <div class="driverlist" id="driverListWrap" style="margin-top:12px;"></div>
     </div>
   </div>
@@ -106,30 +115,50 @@ let view = (()=>{ const t=new Date(); return { year:t.getFullYear(), month:t.get
 
 function monthLabel(y,m){ return `${y}年${m}月`; }
 
+let focusSet = new Set();
+
+function renderDriverFilter(drivers){
+  const el = document.getElementById('driverFilter');
+  el.innerHTML = drivers.map(d=>`
+    <label class="filter-chip ${focusSet.has(d)?'checked':''}">
+      <input type="checkbox" data-driver="${d}" ${focusSet.has(d)?'checked':''}> ${d}
+    </label>
+  `).join('');
+  el.querySelectorAll('input').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.checked) focusSet.add(cb.dataset.driver); else focusSet.delete(cb.dataset.driver);
+      renderBoard();
+    });
+  });
+}
+
 async function renderBoard(){
   document.getElementById('monthLabel').textContent = monthLabel(view.year, view.month);
   const data = await apiGet(`/api/schedule?year=${view.year}&month=${view.month}`);
   const wrap = document.getElementById('boardWrap');
 
+  renderDriverFilter(data.drivers);
+  const displayDrivers = focusSet.size>0 ? data.drivers.filter(d=>focusSet.has(d)) : data.drivers;
+
   let html = `<div class="board-scroll"><table class="board"><thead><tr><th style="text-align:left;">ドライバー</th>`;
   data.dates.forEach(d=>{
     const outOfMonth = d < data.monthStart || d > data.monthEnd;
-    html += `<th class="datecell mono ${outOfMonth?'muted':''}">${fmt(d)}<span class="wd">${WD[dow(d)]}</span></th>`;
+    html += `<th class="datecell mono ${outOfMonth?'muted':''} ${isWeekEnd(d)?'week-end':''}">${fmt(d)}<span class="wd">${WD[dow(d)]}</span></th>`;
   });
   html += `</tr></thead><tbody>`;
 
-  if(data.drivers.length===0){
-    html += `<tr><td colspan="${data.dates.length+1}" style="color:#8ea0b3;">ドライバーが登録されていません(③ドライバー追加 から登録できます)</td></tr>`;
+  if(displayDrivers.length===0){
+    html += `<tr><td colspan="${data.dates.length+1}" style="color:#8ea0b3;">${data.drivers.length===0?'ドライバーが登録されていません(③ドライバー追加 から登録できます)':'表示するドライバーを選択してください'}</td></tr>`;
   }
 
-  data.drivers.forEach(driver=>{
+  displayDrivers.forEach(driver=>{
     html += `<tr><td class="namecell">${driver}</td>`;
     data.dates.forEach(d=>{
       const outOfMonth = d < data.monthStart || d > data.monthEnd;
       const status = (data.schedule[d] && data.schedule[d][driver]) || null;
       const requested = !!(data.offRequestMap[d] && data.offRequestMap[d][driver]);
       const cls = status==='off' && requested ? 'off requested' : statusClass(status);
-      html += `<td class="editable ${outOfMonth?'muted-cell':''}" data-date="${d}" data-driver="${driver}"><span class="chip ${cls}">${status?statusSymbol(status):'-'}</span></td>`;
+      html += `<td class="editable ${outOfMonth?'muted-cell':''} ${isWeekEnd(d)?'week-end':''}" data-date="${d}" data-driver="${driver}"><span class="chip ${cls}">${status?statusSymbol(status):'-'}</span></td>`;
     });
     html += `</tr>`;
   });
@@ -157,17 +186,76 @@ function renderWarnings(warnings){
   }
 }
 
+let reqState = { driver: null, month: null };
+
+function nextMonthYM(){
+  const t = new Date();
+  let y = t.getFullYear(), m = t.getMonth() + 2; // 翌月
+  while(m > 12){ m -= 12; y++; }
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
+
 async function renderRequestsTable(){
   const wrap = document.getElementById('requestsTableWrap');
-  const list = (await apiGet('/api/offrequests')).sort((a,b)=>a.date.localeCompare(b.date));
-  if(list.length===0){ wrap.innerHTML = `<div class="empty">現在、希望休の申請はありません</div>`; return; }
-  wrap.innerHTML = `<table class="plain"><thead><tr><th>ドライバー名</th><th>日付</th><th>備考</th><th></th></tr></thead><tbody>`+
-    list.map(r=>`<tr>
-      <td>${r.driver}</td>
-      <td class="mono">${fmt(r.date)} (${WD[dow(r.date)]})</td>
-      <td>${r.note||'ー'}</td>
-      <td><button class="btn ghost" data-id="${r.id}" style="padding:4px 10px;font-size:11px;">削除</button></td>
-    </tr>`).join('') + `</tbody></table>`;
+  const [list, drivers] = await Promise.all([apiGet('/api/offrequests'), apiGet('/api/drivers')]);
+
+  if(!reqState.driver){
+    // ドライバー一覧(クリックで次の画面へ)
+    if(drivers.length===0){ wrap.innerHTML = `<div class="empty">ドライバーが登録されていません</div>`; return; }
+    const countMap = {};
+    list.forEach(r=>{ countMap[r.driver] = (countMap[r.driver]||0) + 1; });
+    wrap.innerHTML = drivers.map(d => `
+      <div class="req-driver-row" data-driver="${d}">
+        <span class="req-driver-row-name">${d}</span>
+        <span class="req-driver-row-count">${countMap[d] ? countMap[d]+'件' : '申請なし'}</span>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('.req-driver-row').forEach(row=>{
+      row.addEventListener('click', ()=>{
+        reqState.driver = row.dataset.driver;
+        reqState.month = null;
+        renderRequestsTable();
+      });
+    });
+    return;
+  }
+
+  // 選択したドライバーの月選択+その月の希望休一覧
+  const driver = reqState.driver;
+  const mine = list.filter(r => r.driver === driver);
+  const monthsSet = new Set(mine.map(r => r.date.slice(0,7)));
+  const defaultMonth = nextMonthYM();
+  monthsSet.add(defaultMonth); // 基本的に「今日の翌月」は常に選択肢に出す
+  const months = [...monthsSet].sort();
+  if(!reqState.month) reqState.month = defaultMonth;
+
+  let html = `<div class="req-back-row"><button class="btn ghost" id="reqBackBtn">← ドライバー一覧に戻る</button></div>`;
+  html += `<h3 class="req-driver-name">${driver}</h3>`;
+  html += `<div class="req-month-pills">` + months.map(ym=>{
+    const [y,m] = ym.split('-');
+    return `<button class="month-pill ${ym===reqState.month?'active':''}" data-ym="${ym}">${parseInt(y)}年${parseInt(m)}月</button>`;
+  }).join('') + `</div>`;
+
+  const rows = mine.filter(r => r.date.slice(0,7) === reqState.month).sort((a,b)=>a.date.localeCompare(b.date));
+  if(rows.length===0){
+    html += `<div class="empty">この月の希望休はありません</div>`;
+  } else {
+    html += `<table class="plain"><tbody>` + rows.map(r=>`
+      <tr>
+        <td class="mono" style="width:170px;">${fmt(r.date)} (${WD[dow(r.date)]}) <span class="pill pending">${requestTypeLabel(r.type)}</span></td>
+        <td>${r.note||'ー'}</td>
+        <td style="width:70px; text-align:right;"><button class="btn ghost" data-id="${r.id}" style="padding:4px 10px;font-size:11px;">削除</button></td>
+      </tr>
+    `).join('') + `</tbody></table>`;
+  }
+
+  wrap.innerHTML = html;
+  document.getElementById('reqBackBtn').addEventListener('click', ()=>{
+    reqState.driver = null; reqState.month = null; renderRequestsTable();
+  });
+  wrap.querySelectorAll('.month-pill').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ reqState.month = btn.dataset.ym; renderRequestsTable(); });
+  });
   wrap.querySelectorAll('button[data-id]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       await apiSend(`/api/offrequests/${btn.dataset.id}`, 'DELETE');
@@ -193,13 +281,32 @@ async function renderHeadcountSettings(){
 }
 
 async function renderDriverList(){
-  const drivers = await apiGet('/api/drivers');
+  const [drivers, pwStatus] = await Promise.all([apiGet('/api/drivers'), apiGet('/api/driver-password-status')]);
   const dWrap = document.getElementById('driverListWrap');
-  dWrap.innerHTML = drivers.map(d=>`<div class="drivertag">${d} <button data-name="${d}">×</button></div>`).join('') || `<div class="empty" style="padding:6px 0;">未登録</div>`;
+  dWrap.innerHTML = drivers.map(d=>`
+    <div class="drivertag">
+      ${d}
+      <span style="font-size:10px; color:${pwStatus[d]?'var(--accent-strong)':'var(--danger)'};">${pwStatus[d]?'🔑設定済':'🔑未設定'}</span>
+      <button data-pw="${d}" style="color:var(--accent-strong);">🔑</button>
+      <button data-name="${d}">×</button>
+    </div>
+  `).join('') || `<div class="empty" style="padding:6px 0;">未登録</div>`;
+
   dWrap.querySelectorAll('button[data-name]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       await apiSend(`/api/drivers/${encodeURIComponent(btn.dataset.name)}`, 'DELETE');
       renderDriverList(); renderBoard();
+    });
+  });
+  dWrap.querySelectorAll('button[data-pw]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const name = btn.dataset.pw;
+      const pw = window.prompt(`${name} さんの新しいパスワードを入力してください(請求書システムと同じものを推奨):`);
+      if(pw === null) return;
+      if(!pw.trim()){ alert('パスワードを入力してください。'); return; }
+      await apiSend(`/api/drivers/${encodeURIComponent(name)}/password`, 'POST', { password: pw.trim() });
+      alert(`${name} さんのパスワードを設定しました。`);
+      renderDriverList();
     });
   });
 }
@@ -270,6 +377,17 @@ document.getElementById('addDriverBtn').addEventListener('click', async ()=>{
   if(!name) return;
   await apiSend('/api/drivers', 'POST', { name });
   document.getElementById('newDriverName').value='';
+  renderDriverList(); renderBoard();
+});
+
+document.getElementById('bulkAddDriverBtn').addEventListener('click', async ()=>{
+  const raw = document.getElementById('bulkDriverNames').value;
+  const names = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(names.length===0) return;
+  for(const name of names){
+    await apiSend('/api/drivers', 'POST', { name });
+  }
+  document.getElementById('bulkDriverNames').value='';
   renderDriverList(); renderBoard();
 });
 

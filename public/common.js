@@ -18,6 +18,12 @@ function statusSymbol(status){
 function statusClass(status){
   return status || 'off';
 }
+function isWeekEnd(dateStr){ return dow(dateStr) === 6; } // 土曜日(週の最後)
+function requestTypeLabel(type){
+  if(type==='am') return '午前休';
+  if(type==='pm') return '午後休';
+  return '終日';
+}
 
 async function apiGet(url){
   const res = await fetch(url);
