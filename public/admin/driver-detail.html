@@ -22,9 +22,8 @@
       <input type="month" id="periodPicker">
     </div>
 
-    <div class="summary-grid" style="grid-template-columns: repeat(5, 1fr);">
+    <div class="summary-grid" style="grid-template-columns: repeat(4, 1fr);">
       <div class="box"><div class="label">売上(稼働費)</div><div class="value" id="sSales">-</div></div>
-      <div class="box"><div class="label">その他稼働</div><div class="value" id="sNonTaxed">-</div></div>
       <div class="box"><div class="label">インセンティブ+経費</div><div class="value" id="sBonus">-</div></div>
       <div class="box"><div class="label">控除合計</div><div class="value" id="sDeduction">-</div></div>
       <div class="box"><div class="label">お支払見込額</div><div class="value" id="sNet">-</div></div>
@@ -179,7 +178,6 @@
 
       if (preview) {
         document.getElementById('sSales').textContent = `¥${preview.salesAmount.toLocaleString()}`;
-        document.getElementById('sNonTaxed').textContent = `¥${preview.otherWorkAmount.toLocaleString()}`;
         document.getElementById('sBonus').textContent = `¥${(preview.incentivesTotal + preview.expensesTotal).toLocaleString()}`;
         document.getElementById('sDeduction').textContent = `−¥${preview.deductionsTotal.toLocaleString()}`;
         document.getElementById('sNet').textContent = `¥${preview.netPayment.toLocaleString()}`;
@@ -188,7 +186,6 @@
         rows.expense = preview.expenseLines.map(l => ({ category: l.category, amount: l.amount, memo: l.memo }));
       } else {
         document.getElementById('sSales').textContent = '¥0';
-        document.getElementById('sNonTaxed').textContent = '¥0';
         document.getElementById('sBonus').textContent = '¥0';
         document.getElementById('sDeduction').textContent = '−¥0';
         document.getElementById('sNet').textContent = '¥0';

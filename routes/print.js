@@ -24,8 +24,7 @@ function register(app) {
       salesLines: lines.filter((l) => l.section === 'sales'),
       incentiveLines: lines.filter((l) => l.section === 'incentive'),
       expenseLines: lines.filter((l) => l.section === 'expense'),
-      deductionLines: lines.filter((l) => l.section === 'deduction'),
-      otherWorkLines: lines.filter((l) => l.section === 'other_work')
+      deductionLines: lines.filter((l) => l.section === 'deduction')
     });
     res.html(html);
   });

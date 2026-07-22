@@ -232,7 +232,6 @@ function register(app) {
       invoice.sales_amount = preview.salesAmount;
       invoice.full_day_amount = preview.fullDayAmount;
       invoice.half_day_amount = preview.halfDayAmount;
-      invoice.other_work_amount = preview.otherWorkAmount;
       invoice.incentives_total = preview.incentivesTotal;
       invoice.expenses_total = preview.expensesTotal;
       invoice.deductions_total = preview.deductionsTotal;
@@ -269,19 +268,6 @@ function register(app) {
             quantity: preview.halfDays,
             unit_price: HALF_DAY_RATE,
             amount: preview.halfDayAmount,
-            taxable: false
-          });
-        }
-        if (preview.otherWorkAmount > 0) {
-          lineItems.push({
-            id: db.id(),
-            invoice_id: invoice.id,
-            section: 'other_work',
-            category: 'その他稼働',
-            description: `出勤 ${preview.otherWorkDays}日 × 日額 ${preview.otherWorkUnitPrice.toLocaleString()}円`,
-            quantity: preview.otherWorkDays,
-            unit_price: preview.otherWorkUnitPrice,
-            amount: preview.otherWorkAmount,
             taxable: false
           });
         }
@@ -398,8 +384,7 @@ function register(app) {
       salesLines: lines.filter((l) => l.section === 'sales'),
       incentiveLines: lines.filter((l) => l.section === 'incentive'),
       expenseLines: lines.filter((l) => l.section === 'expense'),
-      deductionLines: lines.filter((l) => l.section === 'deduction'),
-      otherWorkLines: lines.filter((l) => l.section === 'other_work')
+      deductionLines: lines.filter((l) => l.section === 'deduction')
     });
 
     try {

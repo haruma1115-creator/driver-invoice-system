@@ -111,10 +111,7 @@ function register(app) {
   });
 
   app.post(`${P}/work-entries`, requireDriver, async (req, res) => {
-    const {
-      period, full_days, half_days, unit_price,
-      other_work_unit_price, other_work_days, note
-    } = req.body || {};
+    const { period, full_days, half_days, unit_price, note } = req.body || {};
     if (!period || full_days == null || unit_price == null) {
       return res.status(400).json({ error: '対象月・全日勤務日数・日当は必須です' });
     }
@@ -124,8 +121,6 @@ function register(app) {
         entry.full_days = Number(full_days);
         entry.half_days = Number(half_days || 0);
         entry.unit_price = Number(unit_price);
-        entry.other_work_unit_price = Number(other_work_unit_price || 0);
-        entry.other_work_days = Number(other_work_days || 0);
         entry.note = note || '';
         entry.updated_at = new Date().toISOString();
       } else {
@@ -136,8 +131,6 @@ function register(app) {
           full_days: Number(full_days),
           half_days: Number(half_days || 0),
           unit_price: Number(unit_price),
-          other_work_unit_price: Number(other_work_unit_price || 0),
-          other_work_days: Number(other_work_days || 0),
           note: note || '',
           status: 'submitted',
           created_at: new Date().toISOString(),
