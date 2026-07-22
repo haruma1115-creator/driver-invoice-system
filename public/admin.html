@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>シフト自動作成システム | 管理者用</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><span class="dot"></span> シフト自動作成システム</div>
+  <div class="badge">管理者用</div>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" data-panel="a-schedule">① 全体のシフト表</div>
+    <div class="tab" data-panel="a-requests">② 希望休の確認</div>
+    <div class="tab" data-panel="a-drivers">③ ドライバー追加</div>
+  </div>
+
+  <!-- ① 全体のシフト表 -->
+  <div class="panel active" id="a-schedule">
+    <div id="warningBanners"></div>
+
+    <div class="card">
+      <div class="month-nav">
+        <button id="prevMonth">← 前月</button>
+        <div class="label" id="monthLabel"></div>
+        <button id="nextMonth">次月 →</button>
+        <button id="todayBtn" style="margin-left:auto;">今月に戻る</button>
+      </div>
+
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">シフト表(クリックでセル編集: ◯→C1→C2→×)</h2>
+        <button class="btn accent" id="generateBtn">⚙ この月を自動シフト作成<small>希望休・必要人数・指示から生成</small></button>
+      </div>
+      <div id="boardWrap" style="margin-top:14px;"></div>
+      <div class="legend">
+        <span><b class="sym">◯</b> 終日勤務</span>
+        <span><b class="sym">C1</b> 半日(午前)</span>
+        <span><b class="sym">C2</b> 半日(午後)</span>
+        <span><b class="sym" style="color:#8ea0b3;">×</b> 休み</span>
+        <span><b class="sym" style="color:#c94a3f;">×</b> 希望休</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>必要人数(原則)</h2>
+      <div class="row">
+        <div class="field"><label>1日あたりの基本必要人数</label><input type="number" id="defaultHeadcount" min="0" style="width:100px;"></div>
+        <button class="btn ghost" id="saveHeadcountBtn">保存</button>
+      </div>
+      <h3>日付ごとの例外設定(任意)</h3>
+      <div class="row">
+        <div class="field"><label>日付</label><input type="date" id="overrideDate"></div>
+        <div class="field"><label>人数</label><input type="number" id="overrideCount" min="0" style="width:90px;"></div>
+        <button class="btn ghost" id="addOverrideBtn">例外を追加</button>
+      </div>
+      <div id="overrideList" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>シフトへの指示出し(チャット)</h2>
+      <p class="note">例)「鈴木さんは体調不良が多いから、週3日の勤務にしたい」のように、ドライバー名を含めて入力してください。指示は次回の自動シフト作成から反映されます。</p>
+      <div class="chatbox">
+        <div class="chatlog" id="chatLog"></div>
+        <div class="chat-input">
+          <input type="text" id="chatInput" placeholder="ドライバー名を含めて指示を入力...">
+          <button class="btn accent" id="chatSendBtn">送信</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 希望休の確認 -->
+  <div class="panel" id="a-requests">
+    <div class="card">
+      <h2>希望休申請一覧</h2>
+      <div id="requestsTableWrap"></div>
+    </div>
+  </div>
+
+  <!-- ③ ドライバー追加 -->
+  <div class="panel" id="a-drivers">
+    <div class="card">
+      <h2>ドライバー管理</h2>
+      <p class="note">希望休の提出状況にかかわらず、いつでもドライバーの追加・削除ができます。</p>
+      <div class="row">
+        <div class="field" style="flex:1;"><label>ドライバー名を追加</label><input type="text" id="newDriverName" placeholder="例)鈴木 一郎"></div>
+        <button class="btn ghost" id="addDriverBtn">追加</button>
+      </div>
+      <div class="driverlist" id="driverListWrap" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <div class="footer-note">シフト自動作成システム(管理者用) ー 日曜始まり週区切り／週5日+半日を上限／週跨ぎ最大6連勤ルール準拠</div>
+</div>
+
+<script src="/common.js"></script>
+<script>
+let view = (()=>{ const t=new Date(); return { year:t.getFullYear(), month:t.getMonth()+1 }; })();
+
+function monthLabel(y,m){ return `${y}年${m}月`; }
+
+async function renderBoard(){
+  document.getElementById('monthLabel').textContent = monthLabel(view.year, view.month);
+  const data = await apiGet(`/api/schedule?year=${view.year}&month=${view.month}`);
+  const wrap = document.getElementById('boardWrap');
+
+  let html = `<div class="board-scroll"><table class="board"><thead><tr><th style="text-align:left;">ドライバー</th>`;
+  data.dates.forEach(d=>{
+    const outOfMonth = d < data.monthStart || d > data.monthEnd;
+    html += `<th class="datecell mono ${outOfMonth?'muted':''}">${fmt(d)}<span class="wd">${WD[dow(d)]}</span></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  if(data.drivers.length===0){
+    html += `<tr><td colspan="${data.dates.length+1}" style="color:#8ea0b3;">ドライバーが登録されていません(③ドライバー追加 から登録できます)</td></tr>`;
+  }
+
+  data.drivers.forEach(driver=>{
+    html += `<tr><td class="namecell">${driver}</td>`;
+    data.dates.forEach(d=>{
+      const outOfMonth = d < data.monthStart || d > data.monthEnd;
+      const status = (data.schedule[d] && data.schedule[d][driver]) || null;
+      const requested = !!(data.offRequestMap[d] && data.offRequestMap[d][driver]);
+      const cls = status==='off' && requested ? 'off requested' : statusClass(status);
+      html += `<td class="editable ${outOfMonth?'muted-cell':''}" data-date="${d}" data-driver="${driver}"><span class="chip ${cls}">${status?statusSymbol(status):'-'}</span></td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('td.editable').forEach(td=>{
+    td.addEventListener('click', async ()=>{
+      const date = td.dataset.date, driver = td.dataset.driver;
+      const order = ['full','half_am','half_pm','off'];
+      const cur = (data.schedule[date] && data.schedule[date][driver]) || 'off';
+      const next = order[(order.indexOf(cur)+1)%order.length];
+      await apiSend('/api/schedule/cell', 'POST', { date, driver, status: next });
+      renderBoard();
+    });
+  });
+}
+
+function renderWarnings(warnings){
+  const el = document.getElementById('warningBanners');
+  if(warnings && warnings.length){
+    el.innerHTML = `<div class="banner warn"><div>⚠ <b>自動作成の警告 (${warnings.length}件)</b><br>${warnings.join('<br>')}</div></div>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+async function renderRequestsTable(){
+  const wrap = document.getElementById('requestsTableWrap');
+  const list = (await apiGet('/api/offrequests')).sort((a,b)=>a.date.localeCompare(b.date));
+  if(list.length===0){ wrap.innerHTML = `<div class="empty">現在、希望休の申請はありません</div>`; return; }
+  wrap.innerHTML = `<table class="plain"><thead><tr><th>ドライバー名</th><th>日付</th><th>備考</th><th></th></tr></thead><tbody>`+
+    list.map(r=>`<tr>
+      <td>${r.driver}</td>
+      <td class="mono">${fmt(r.date)} (${WD[dow(r.date)]})</td>
+      <td>${r.note||'ー'}</td>
+      <td><button class="btn ghost" data-id="${r.id}" style="padding:4px 10px;font-size:11px;">削除</button></td>
+    </tr>`).join('') + `</tbody></table>`;
+  wrap.querySelectorAll('button[data-id]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      await apiSend(`/api/offrequests/${btn.dataset.id}`, 'DELETE');
+      renderRequestsTable(); renderBoard();
+    });
+  });
+}
+
+async function renderHeadcountSettings(){
+  const hc = await apiGet('/api/headcount');
+  document.getElementById('defaultHeadcount').value = hc.default;
+  const ovWrap = document.getElementById('overrideList');
+  const entries = Object.entries(hc.overrides||{}).sort((a,b)=>a[0].localeCompare(b[0]));
+  ovWrap.innerHTML = entries.length ? entries.map(([date,count])=>`
+    <div class="drivertag"><span class="mono">${fmt(date)}</span>：${count}名 <button data-date="${date}">×</button></div>
+  `).join('') : `<div class="empty" style="padding:6px 0;">例外設定なし</div>`;
+  ovWrap.querySelectorAll('button[data-date]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      await apiSend('/api/headcount', 'POST', { deleteOverrideDate: btn.dataset.date });
+      renderHeadcountSettings();
+    });
+  });
+}
+
+async function renderDriverList(){
+  const drivers = await apiGet('/api/drivers');
+  const dWrap = document.getElementById('driverListWrap');
+  dWrap.innerHTML = drivers.map(d=>`<div class="drivertag">${d} <button data-name="${d}">×</button></div>`).join('') || `<div class="empty" style="padding:6px 0;">未登録</div>`;
+  dWrap.querySelectorAll('button[data-name]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      await apiSend(`/api/drivers/${encodeURIComponent(btn.dataset.name)}`, 'DELETE');
+      renderDriverList(); renderBoard();
+    });
+  });
+}
+
+async function renderChatLog(){
+  const log = await apiGet('/api/chat');
+  const el = document.getElementById('chatLog');
+  el.innerHTML = log.map(m=>`<div class="bubble ${m.role}">${m.text}</div>`).join('') ||
+    `<div class="bubble bot">ドライバーへの指示をここに入力してください。例:「鈴木さんは体調不良が多いから、週3日の勤務にしたい」</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function refreshAll(){
+  renderBoard();
+  renderRequestsTable();
+  renderHeadcountSettings();
+  renderDriverList();
+  renderChatLog();
+}
+
+document.querySelectorAll('.tabs').forEach(tabs=>{
+  tabs.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      tabs.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+      document.getElementById(tab.dataset.panel).classList.add('active');
+    });
+  });
+});
+
+function shiftMonth(n){
+  let y=view.year, m=view.month+n;
+  while(m<1){ m+=12; y--; }
+  while(m>12){ m-=12; y++; }
+  view = { year:y, month:m };
+  renderBoard();
+}
+document.getElementById('prevMonth').addEventListener('click', ()=>shiftMonth(-1));
+document.getElementById('nextMonth').addEventListener('click', ()=>shiftMonth(1));
+document.getElementById('todayBtn').addEventListener('click', ()=>{
+  const t=new Date(); view={ year:t.getFullYear(), month:t.getMonth()+1 }; renderBoard();
+});
+
+document.getElementById('generateBtn').addEventListener('click', async ()=>{
+  const drivers = await apiGet('/api/drivers');
+  if(drivers.length===0){ alert('ドライバーが登録されていません。'); return; }
+  const result = await apiSend('/api/generate', 'POST', { year: view.year, month: view.month });
+  renderWarnings(result.warnings);
+  renderBoard();
+});
+
+document.getElementById('saveHeadcountBtn').addEventListener('click', async ()=>{
+  const val = parseInt(document.getElementById('defaultHeadcount').value)||0;
+  await apiSend('/api/headcount', 'POST', { default: val });
+});
+
+document.getElementById('addOverrideBtn').addEventListener('click', async ()=>{
+  const date = document.getElementById('overrideDate').value;
+  const count = parseInt(document.getElementById('overrideCount').value);
+  if(!date || isNaN(count)){ alert('日付と人数を入力してください。'); return; }
+  await apiSend('/api/headcount', 'POST', { overrideDate: date, overrideCount: count });
+  renderHeadcountSettings();
+});
+
+document.getElementById('addDriverBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('newDriverName').value.trim();
+  if(!name) return;
+  await apiSend('/api/drivers', 'POST', { name });
+  document.getElementById('newDriverName').value='';
+  renderDriverList(); renderBoard();
+});
+
+async function sendChat(){
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if(!message) return;
+  input.value='';
+  input.disabled = true;
+  await renderChatLog();
+  const el = document.getElementById('chatLog');
+  el.insertAdjacentHTML('beforeend', `<div class="bubble admin">${message}</div><div class="bubble bot" id="chatPending">…考え中…</div>`);
+  el.scrollTop = el.scrollHeight;
+  try{
+    await apiSend('/api/chat', 'POST', { message });
+  } finally {
+    input.disabled = false;
+    await renderChatLog();
+  }
+}
+document.getElementById('chatSendBtn').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendChat(); });
+
+refreshAll();
+</script>
+</body>
+</html>

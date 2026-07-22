@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>シフト自動作成システム | ドライバー用</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="mobile-app">
+
+<div class="app-shell">
+  <header class="mheader">
+    <div class="mbrand">🚚 シフトシステム</div>
+  </header>
+
+  <div class="mtoprow">
+    <span>ログイン中</span>
+    <select id="driverSelect"></select>
+  </div>
+
+  <main class="mmain">
+
+    <!-- トップ(メニュー) -->
+    <section class="page active" id="page-menu">
+      <div class="menu-card" data-nav="schedule">
+        <div class="menu-icon">🗓️</div>
+        <div class="menu-text">
+          <div class="menu-title">全体のシフト表</div>
+          <div class="menu-desc">今月のシフトをみんなで確認できます</div>
+        </div>
+      </div>
+      <div class="menu-card" data-nav="request">
+        <div class="menu-icon">🙋</div>
+        <div class="menu-text">
+          <div class="menu-title">希望休送付</div>
+          <div class="menu-desc">休みたい日をまとめて申請できます</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 全体のシフト表 -->
+    <section class="page" id="page-schedule">
+      <div class="card">
+        <div class="month-nav">
+          <button id="prevMonthA">←</button>
+          <div class="label" id="monthLabelA"></div>
+          <button id="nextMonthA">→</button>
+        </div>
+        <h2 style="font-size:13px;">シフト表(閲覧のみ)</h2>
+        <div id="boardWrap"></div>
+        <div class="legend">
+          <span><b class="sym">◯</b>終日</span>
+          <span><b class="sym">C1</b>午前半日</span>
+          <span><b class="sym">C2</b>午後半日</span>
+          <span><b class="sym">×</b>休み</span>
+          <span><b class="sym" style="color:#d9564a;">×</b>希望休</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 希望休送付 -->
+    <section class="page" id="page-request">
+      <div class="card">
+        <div class="month-nav">
+          <button id="prevMonthB">←</button>
+          <div class="label" id="monthLabelB"></div>
+          <button id="nextMonthB">→</button>
+        </div>
+        <h2 style="font-size:13px;">休みたい日を選択</h2>
+        <div class="checklist" id="requestDayPicker"></div>
+        <div class="field" style="margin-top:12px;">
+          <label>備考(任意)</label>
+          <input type="text" id="requestNote" placeholder="例)通院のため">
+        </div>
+        <button class="btn accent" id="submitRequestBtn" style="width:100%; margin-top:12px;">この内容で申請する</button>
+      </div>
+      <div class="card">
+        <h2 style="font-size:13px;">自分の申請状況</h2>
+        <div id="myRequestsList"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <button data-nav="menu" class="active"><span class="icon">🏠</span><span>トップ</span></button>
+    <button data-nav="schedule"><span class="icon">🗓️</span><span>シフト表</span></button>
+    <button data-nav="request"><span class="icon">🙋</span><span>希望休</span></button>
+  </nav>
+</div>
+
+<script src="/common.js"></script>
+<script>
+let view = (()=>{ const t=new Date(); return { year:t.getFullYear(), month:t.getMonth()+1 }; })();
+
+async function loadDrivers(){
+  const drivers = await apiGet('/api/drivers');
+  const sel = document.getElementById('driverSelect');
+  const prev = sel.value;
+  sel.innerHTML = drivers.map(d=>`<option value="${d}">${d}</option>`).join('') || `<option value="">(未登録)</option>`;
+  if(drivers.includes(prev)) sel.value = prev;
+}
+function currentDriver(){ return document.getElementById('driverSelect').value; }
+function monthLabel(y,m){ return `${y}年${m}月`; }
+
+async function renderBoard(){
+  document.getElementById('monthLabelA').textContent = monthLabel(view.year, view.month);
+  const data = await apiGet(`/api/schedule?year=${view.year}&month=${view.month}`);
+  const wrap = document.getElementById('boardWrap');
+  const me = currentDriver();
+
+  let html = `<div class="board-scroll"><table class="board"><thead><tr><th style="text-align:left;">氏名</th>`;
+  data.dates.forEach(d=>{
+    const outOfMonth = d < data.monthStart || d > data.monthEnd;
+    html += `<th class="datecell mono ${outOfMonth?'muted':''}">${fmt(d)}<span class="wd">${WD[dow(d)]}</span></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  if(data.drivers.length===0){
+    html += `<tr><td colspan="${data.dates.length+1}" style="color:#a9cf9a;">ドライバー未登録</td></tr>`;
+  }
+
+  data.drivers.forEach(driver=>{
+    const isMe = me && driver===me;
+    html += `<tr><td class="namecell${isMe?' me':''}">${driver}${isMe?'(自分)':''}</td>`;
+    data.dates.forEach(d=>{
+      const outOfMonth = d < data.monthStart || d > data.monthEnd;
+      const status = (data.schedule[d] && data.schedule[d][driver]) || null;
+      const requested = !!(data.offRequestMap[d] && data.offRequestMap[d][driver]);
+      const cls = status==='off' && requested ? 'off requested' : statusClass(status);
+      html += `<td class="${outOfMonth?'muted-cell':''}"><span class="chip ${cls}">${status?statusSymbol(status):'-'}</span></td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+  wrap.innerHTML = html;
+}
+
+function renderRequestPicker(){
+  document.getElementById('monthLabelB').textContent = monthLabel(view.year, view.month);
+  const wrap = document.getElementById('requestDayPicker');
+  const y=view.year, m=view.month;
+  const lastDate = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const dates = [];
+  for(let d=1; d<=lastDate; d++){ dates.push(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`); }
+  wrap.innerHTML = dates.map(d=>`<div class="daybtn" data-date="${d}">${fmt(d)}<span class="wd">${WD[dow(d)]}</span></div>`).join('');
+  wrap.querySelectorAll('.daybtn').forEach(btn=>{
+    btn.addEventListener('click', ()=> btn.classList.toggle('picked'));
+  });
+}
+
+async function renderMyRequests(){
+  const driver = currentDriver();
+  const wrap = document.getElementById('myRequestsList');
+  const all = await apiGet('/api/offrequests');
+  const mine = all.filter(r=>r.driver===driver).sort((a,b)=>a.date.localeCompare(b.date));
+  if(mine.length===0){ wrap.innerHTML = `<div class="empty">申請はまだありません</div>`; return; }
+  wrap.innerHTML = mine.map(r=>`
+    <div class="row" style="justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0;">
+      <div>
+        <div class="mono" style="font-weight:700;">${fmt(r.date)} (${WD[dow(r.date)]})</div>
+        <div class="note" style="margin:0;">${r.note||''}</div>
+      </div>
+      <button class="btn ghost" data-id="${r.id}" style="padding:4px 10px;font-size:11px;">取り消す</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('button[data-id]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      await apiSend(`/api/offrequests/${btn.dataset.id}`, 'DELETE');
+      renderMyRequests(); renderBoard();
+    });
+  });
+}
+
+function refreshAll(){ renderBoard(); renderRequestPicker(); renderMyRequests(); }
+
+function goPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active', b.dataset.nav===name));
+}
+document.querySelectorAll('.bottom-nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=> goPage(btn.dataset.nav));
+});
+document.querySelectorAll('.menu-card').forEach(card=>{
+  card.addEventListener('click', ()=> goPage(card.dataset.nav));
+});
+
+document.getElementById('driverSelect').addEventListener('change', ()=>{ renderBoard(); renderMyRequests(); });
+
+function shiftMonth(n){
+  let y=view.year, m=view.month+n;
+  while(m<1){ m+=12; y--; }
+  while(m>12){ m-=12; y++; }
+  view = { year:y, month:m };
+  refreshAll();
+}
+document.getElementById('prevMonthA').addEventListener('click', ()=>shiftMonth(-1));
+document.getElementById('nextMonthA').addEventListener('click', ()=>shiftMonth(1));
+document.getElementById('prevMonthB').addEventListener('click', ()=>shiftMonth(-1));
+document.getElementById('nextMonthB').addEventListener('click', ()=>shiftMonth(1));
+
+document.getElementById('submitRequestBtn').addEventListener('click', async ()=>{
+  const driver = currentDriver();
+  if(!driver){ alert('ドライバーが登録されていません。管理者にドライバー登録を依頼してください。'); return; }
+  const picked = [...document.querySelectorAll('#requestDayPicker .daybtn.picked')].map(b=>b.dataset.date);
+  if(picked.length===0){ alert('希望休の日付を選択してください。'); return; }
+  const note = document.getElementById('requestNote').value.trim();
+  await apiSend('/api/offrequests', 'POST', { driver, dates: picked, note });
+  document.getElementById('requestNote').value='';
+  document.querySelectorAll('#requestDayPicker .daybtn.picked').forEach(b=>b.classList.remove('picked'));
+  renderMyRequests();
+});
+
+(async function init(){
+  await loadDrivers();
+  refreshAll();
+})();
+</script>
+</body>
+</html>
