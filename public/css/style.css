@@ -1,13 +1,20 @@
+:root {
+  --primary: #7cb342;       /* 黄緑(ボタン・タブなど、白文字と組み合わせる背景色) */
+  --primary-dark: #558b2f;  /* 濃い黄緑(ヘッダー・ホバー・本文中のリンク色) */
+  --primary-light: #f1f8e9; /* ごく薄い黄緑(バッジ・タブ非アクティブ背景) */
+  --primary-lighter: #dcedc8; /* 薄い黄緑(ヘッダーnav文字など) */
+  --accent-lime: #d4e157;   /* 明るいライム(ポップな見出しバナーなど) */
+}
 * { box-sizing: border-box; }
 body {
   font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", -apple-system, sans-serif;
-  background: #f5f7fa;
+  background: #f6faf1;
   color: #1a202c;
   margin: 0;
   padding: 0;
 }
 header.app-header {
-  background: #1a365d;
+  background: var(--primary-dark);
   color: #fff;
   padding: 14px 24px;
   display: flex;
@@ -15,50 +22,87 @@ header.app-header {
   align-items: center;
 }
 header.app-header .title { font-size: 17px; font-weight: bold; }
-header.app-header nav a { color: #cbd5e0; text-decoration: none; margin-left: 16px; font-size: 13px; }
+header.app-header nav a { color: var(--primary-lighter); text-decoration: none; margin-left: 16px; font-size: 13px; }
 header.app-header nav a:hover { color: #fff; }
 header.app-header button.logout {
-  background: transparent; border: 1px solid #718096; color: #cbd5e0;
+  background: transparent; border: 1px solid #a5d6a7; color: var(--primary-lighter);
   padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 16px;
 }
 main.container { max-width: 960px; margin: 0 auto; padding: 24px; }
 .center-box { max-width: 400px; margin: 80px auto; background: #fff; border-radius: 8px; padding: 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
 .center-box h1 { font-size: 20px; margin-top: 0; text-align: center; }
 .card { background: #fff; border-radius: 8px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-.card h2 { font-size: 16px; margin: 0 0 16px; border-left: 4px solid #2b6cb0; padding-left: 10px; }
+.card h2 { font-size: 16px; margin: 0 0 16px; border-left: 4px solid var(--primary); padding-left: 10px; }
 label { display: block; font-size: 13px; color: #4a5568; margin-bottom: 4px; margin-top: 12px; }
 input[type=text], input[type=email], input[type=password], input[type=number], input[type=month], select, textarea {
   width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;
 }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(124,179,66,0.25); }
 .row { display: flex; gap: 16px; }
 .row > div { flex: 1; }
 button.primary {
-  background: #2b6cb0; color: #fff; border: none; padding: 10px 20px; border-radius: 4px;
+  background: var(--primary); color: #fff; border: none; padding: 10px 20px; border-radius: 4px;
   font-size: 14px; cursor: pointer; margin-top: 16px;
 }
-button.primary:hover { background: #2c5282; }
+button.primary:hover { background: var(--primary-dark); }
 button.secondary {
-  background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; padding: 6px 14px; border-radius: 4px;
+  background: var(--primary-light); color: #33691e; border: 1px solid #c5e1a5; padding: 6px 14px; border-radius: 4px;
   font-size: 13px; cursor: pointer;
 }
 button.danger { background: #fff5f5; color: #c53030; border: 1px solid #fc8181; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
 th, td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-th { background: #f7fafc; color: #4a5568; font-size: 12px; }
+th { background: var(--primary-light); color: #33691e; font-size: 12px; }
 td.num, th.num { text-align: right; }
 .muted { color: #718096; font-size: 12px; }
 .error-msg { color: #c53030; font-size: 13px; margin-top: 10px; }
 .success-msg { color: #2f855a; font-size: 13px; margin-top: 10px; }
-.link { color: #2b6cb0; text-decoration: none; font-size: 13px; }
+.link { color: var(--primary-dark); text-decoration: none; font-size: 13px; }
 .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
 .tabs button {
-  padding: 8px 16px; border: none; background: #edf2f7; border-radius: 4px 4px 0 0; cursor: pointer; font-size: 13px;
+  padding: 8px 16px; border: none; background: var(--primary-light); color: #33691e; border-radius: 4px 4px 0 0; cursor: pointer; font-size: 13px;
 }
-.tabs button.active { background: #2b6cb0; color: #fff; }
+.tabs button.active { background: var(--primary-dark); color: #fff; }
 .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
 .badge.gray { background: #edf2f7; color: #4a5568; }
-.badge.blue { background: #ebf8ff; color: #2b6cb0; }
-.badge.green { background: #f0fff4; color: #2f855a; }
+.badge.blue { background: #fff8e1; color: #ef6c00; }
+.badge.green { background: var(--primary-light); color: var(--primary-dark); }
+
+/* ポップな挨拶バナー */
+.greet-banner {
+  background: linear-gradient(135deg, var(--accent-lime), var(--primary));
+  color: #1b3a0d;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(85,139,47,0.25);
+}
+
+/* 発行済みでも編集可能であることを知らせる案内バナー */
+.notice-banner {
+  background: #fffde7;
+  border: 1px solid #fff59d;
+  color: #6b5b00;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+/* 「日数 × 単価 = 金額」を見せる計算行 */
+.calc-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--primary-light); border-radius: 8px; padding: 12px; margin-top: 10px;
+}
+.calc-row .calc-field { flex: 1; min-width: 90px; }
+.calc-row .calc-field label { margin-top: 0; }
+.calc-row .calc-op { font-size: 18px; font-weight: bold; color: var(--primary-dark); padding-top: 18px; }
+.calc-row .calc-eq { flex-basis: 100%; text-align: right; font-size: 14px; padding-top: 6px; border-top: 1px dashed #c5e1a5; margin-top: 6px; }
+.calc-row .calc-eq .amount { font-size: 18px; font-weight: bold; color: var(--primary-dark); }
 .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
 .summary-grid .box { background: #fff; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 .summary-grid .box .label { font-size: 12px; color: #718096; }
@@ -112,5 +156,5 @@ a.plain { color: inherit; text-decoration: none; }
   body.driver-app .tabs button {
     flex: 1; border-radius: 8px; padding: 10px 4px; font-size: 12px;
   }
-  body.driver-app .tabs button.active { background: #2b6cb0; color: #fff; }
+  body.driver-app .tabs button.active { background: var(--primary-dark); color: #fff; }
 }

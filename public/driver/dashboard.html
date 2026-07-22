@@ -15,6 +15,8 @@
   </header>
 
   <main class="container">
+    <div class="greet-banner">いつも稼働ありがとうございます!🎉</div>
+
     <div class="tabs">
       <button data-tab="profile" class="active">プロフィール</button>
       <button data-tab="monthly">月次入力</button>
@@ -78,25 +80,41 @@
         <input type="month" id="periodPicker">
       </div>
 
+      <div id="alreadyIssuedNotice" class="notice-banner" style="display:none;"></div>
+
       <div class="card">
         <h2>1. 稼働日数・単価</h2>
-        <p class="muted">
-          全日勤務: 全日勤務日数 × 日当<br>
-          半日勤務: 半日勤務日数 × 半日単価(固定 ¥<span id="halfDayRateLabel">7,500</span>)<br>
-          その他(自転車など): その他稼働日数 × その他単価<br>
-          ※ 消費税は加算されず、金額はそのまま合計に反映されます。
-        </p>
-        <div class="row">
-          <div><label>全日勤務日数</label><input type="number" id="fullDays" min="0" step="0.5" inputmode="decimal"></div>
-          <div><label>日当(円/日)</label><input type="number" id="unitPrice" min="0" step="1" inputmode="numeric"></div>
+        <p class="muted">※ 消費税は加算されず、金額はそのまま合計に反映されます。</p>
+
+        <label style="margin-top:0;">全日勤務</label>
+        <div class="calc-row">
+          <div class="calc-field"><label>日数</label><input type="number" id="fullDays" min="0" step="0.5" inputmode="decimal" oninput="updateCalcDisplay()"></div>
+          <div class="calc-op">×</div>
+          <div class="calc-field"><label>日当(円/日)</label><input type="number" id="unitPrice" min="0" step="1" inputmode="numeric" oninput="updateCalcDisplay()"></div>
+          <div class="calc-eq">= <span class="amount" id="calcFullAmount">¥0</span></div>
         </div>
-        <div class="row">
-          <div><label>半日勤務日数</label><input type="number" id="halfDays" min="0" step="0.5" inputmode="decimal"></div>
+
+        <label>半日勤務</label>
+        <div class="calc-row">
+          <div class="calc-field"><label>日数</label><input type="number" id="halfDays" min="0" step="0.5" inputmode="decimal" oninput="updateCalcDisplay()"></div>
+          <div class="calc-op">×</div>
+          <div class="calc-field"><label>半日単価(固定)</label><input type="text" value="¥7,500" disabled style="background:#fff; color:#33691e; font-weight:bold;"></div>
+          <div class="calc-eq">= <span class="amount" id="calcHalfAmount">¥0</span></div>
         </div>
-        <div class="row">
-          <div><label>その他(自転車など) 出勤日数</label><input type="number" id="otherWorkDays" min="0" step="0.5" inputmode="decimal"></div>
-          <div><label>その他 単価(円/日)</label><input type="number" id="otherWorkUnitPrice" min="0" step="1" inputmode="numeric"></div>
+
+        <label>その他(自転車など)</label>
+        <div class="calc-row">
+          <div class="calc-field"><label>出勤日数</label><input type="number" id="otherWorkDays" min="0" step="0.5" inputmode="decimal" oninput="updateCalcDisplay()"></div>
+          <div class="calc-op">×</div>
+          <div class="calc-field"><label>単価(円/日)</label><input type="number" id="otherWorkUnitPrice" min="0" step="1" inputmode="numeric" oninput="updateCalcDisplay()"></div>
+          <div class="calc-eq">= <span class="amount" id="calcOtherAmount">¥0</span></div>
         </div>
+
+        <div class="calc-row" style="background:#fff; border:2px solid var(--primary);">
+          <div class="calc-eq" style="flex-basis:auto; flex:1; border-top:none; padding-top:0; text-align:left; font-weight:bold;">稼働費+その他 合計</div>
+          <div class="calc-eq" style="flex-basis:auto; border-top:none; padding-top:0;"><span class="amount" id="calcGrandAmount">¥0</span></div>
+        </div>
+
         <label>備考</label>
         <input type="text" id="workNote">
         <button class="primary" onclick="saveWorkEntry()">保存する</button>
@@ -272,6 +290,44 @@
       document.getElementById('otherWorkDays').value = e ? (e.other_work_days || '') : '';
       document.getElementById('otherWorkUnitPrice').value = e ? (e.other_work_unit_price || '') : '';
       document.getElementById('workNote').value = e ? e.note : '';
+      updateCalcDisplay();
+    }
+
+    // サーバー側 lib/constants.js の HALF_DAY_RATE と合わせてください
+    const HALF_DAY_RATE_CLIENT = 7500;
+
+    function yen(n) { return `¥${Math.round(n || 0).toLocaleString()}`; }
+
+    function updateCalcDisplay() {
+      const fullDays = Number(document.getElementById('fullDays').value || 0);
+      const unitPrice = Number(document.getElementById('unitPrice').value || 0);
+      const halfDays = Number(document.getElementById('halfDays').value || 0);
+      const otherDays = Number(document.getElementById('otherWorkDays').value || 0);
+      const otherPrice = Number(document.getElementById('otherWorkUnitPrice').value || 0);
+
+      const fullAmount = fullDays * unitPrice;
+      const halfAmount = halfDays * HALF_DAY_RATE_CLIENT;
+      const otherAmount = otherDays * otherPrice;
+
+      document.getElementById('calcFullAmount').textContent = yen(fullAmount);
+      document.getElementById('calcHalfAmount').textContent = yen(halfAmount);
+      document.getElementById('calcOtherAmount').textContent = yen(otherAmount);
+      document.getElementById('calcGrandAmount').textContent = yen(fullAmount + halfAmount + otherAmount);
+    }
+
+    async function loadAlreadyIssuedNotice() {
+      const period = currentPeriod();
+      try {
+        const { invoices } = await api('/api/driver/invoices');
+        const inv = invoices.find(i => i.period === period);
+        const el = document.getElementById('alreadyIssuedNotice');
+        if (inv) {
+          el.style.display = 'block';
+          el.textContent = `⚠️ ${period}分はすでに支給明細が${inv.status === 'sent' ? '送付' : '発行'}されています。この画面の内容は今からでも変更できますが、変更後の金額を反映するには管理者が支給明細を再発行する必要があります。`;
+        } else {
+          el.style.display = 'none';
+        }
+      } catch (e) { /* 無視 */ }
     }
 
     async function saveWorkEntry() {
@@ -448,7 +504,7 @@
     }
 
     async function reloadMonthlyTab() {
-      await Promise.all([loadWorkEntry(), loadDeductions(), loadExpenses(), loadIncentives(), loadPreview()]);
+      await Promise.all([loadWorkEntry(), loadDeductions(), loadExpenses(), loadIncentives(), loadPreview(), loadAlreadyIssuedNotice()]);
     }
 
     document.getElementById('periodPicker').addEventListener('change', reloadMonthlyTab);
