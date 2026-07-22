@@ -203,6 +203,18 @@ app.get('/api/driver-password-status', (req, res) => {
   res.json(status);
 });
 
+// ドライバー自身によるパスワードの初回登録(すでに設定済みの場合はエラー)
+app.post('/api/driver-register', (req, res) => {
+  const name = (req.body.name || '').toString();
+  const password = (req.body.password || '').toString();
+  if (!DB.drivers.includes(name)) return res.status(404).json({ error: 'ドライバーが見つかりません' });
+  if (DB.driverPasswords[name]) return res.status(409).json({ error: 'このドライバーはすでにパスワードが登録されています。ログイン画面からログインするか、パスワードを忘れた場合は管理者にリセットを依頼してください。' });
+  if (!password || password.length < 4) return res.status(400).json({ error: 'パスワードは4文字以上で入力してください。' });
+  DB.driverPasswords[name] = hashPassword(password);
+  saveStore();
+  res.json({ ok: true, name });
+});
+
 app.post('/api/driver-login', (req, res) => {
   const name = (req.body.name || '').toString();
   const password = (req.body.password || '').toString();

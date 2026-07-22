@@ -32,7 +32,34 @@
     </div>
     <div class="login-error" id="loginError"></div>
     <button class="btn accent" id="loginBtn" style="width:100%; margin-top:14px;">ログイン</button>
-    <p class="note" style="margin-top:10px;">パスワードが分からない場合や未設定の場合は、管理者にご確認ください。</p>
+    <p class="note" style="margin-top:10px; text-align:center;">
+      <button class="logout-link" id="goRegisterBtn" style="color:var(--accent-strong);">はじめての方はこちら(パスワード登録)</button>
+    </p>
+  </div>
+</div>
+
+<!-- 初回パスワード登録画面 -->
+<div class="app-shell login-page" id="registerScreen" style="display:none;">
+  <div class="login-logo">🔑</div>
+  <div class="login-title">パスワードの初回登録</div>
+  <div class="card">
+    <div class="field">
+      <label>お名前</label>
+      <select id="registerName"></select>
+    </div>
+    <div class="field" style="margin-top:12px;">
+      <label>パスワード(4文字以上)</label>
+      <input type="password" id="registerPassword" placeholder="パスワードを入力">
+    </div>
+    <div class="field" style="margin-top:12px;">
+      <label>パスワード(確認用)</label>
+      <input type="password" id="registerPasswordConfirm" placeholder="もう一度入力">
+    </div>
+    <div class="login-error" id="registerError"></div>
+    <button class="btn accent" id="registerBtn" style="width:100%; margin-top:14px;">登録してログイン</button>
+    <p class="note" style="margin-top:10px; text-align:center;">
+      <button class="logout-link" id="goLoginBtn" style="color:var(--accent-strong);">← ログイン画面に戻る</button>
+    </p>
   </div>
 </div>
 
@@ -124,7 +151,7 @@
 let view = (()=>{ const t=new Date(); return { year:t.getFullYear(), month:t.getMonth()+1 }; })();
 let loggedInDriver = localStorage.getItem('shiftDriverName') || null;
 
-/* ===================== ログイン ===================== */
+/* ===================== ログイン・初回登録 ===================== */
 async function initAuth(){
   const drivers = await apiGet('/api/drivers');
   if(loggedInDriver && drivers.includes(loggedInDriver)){
@@ -132,11 +159,12 @@ async function initAuth(){
   } else {
     loggedInDriver = null;
     localStorage.removeItem('shiftDriverName');
-    showLogin(drivers);
+    await showLogin(drivers);
   }
 }
 
-function showLogin(drivers){
+async function showLogin(drivers){
+  document.getElementById('registerScreen').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('mainShell').style.display='none';
   const sel = document.getElementById('loginName');
@@ -145,12 +173,40 @@ function showLogin(drivers){
   document.getElementById('loginPassword').value='';
 }
 
+async function showRegister(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainShell').style.display='none';
+  document.getElementById('registerScreen').style.display='flex';
+  const [drivers, pwStatus] = await Promise.all([apiGet('/api/drivers'), apiGet('/api/driver-password-status')]);
+  const unregistered = drivers.filter(d => !pwStatus[d]);
+  const sel = document.getElementById('registerName');
+  const errEl = document.getElementById('registerError');
+  errEl.textContent='';
+  document.getElementById('registerPassword').value='';
+  document.getElementById('registerPasswordConfirm').value='';
+  if(unregistered.length===0){
+    sel.innerHTML = '';
+    errEl.textContent = '登録可能なドライバーがいません(すでに全員登録済みです)。ログイン画面からログインしてください。';
+    document.getElementById('registerBtn').disabled = true;
+  } else {
+    sel.innerHTML = unregistered.map(d=>`<option value="${d}">${d}</option>`).join('');
+    document.getElementById('registerBtn').disabled = false;
+  }
+}
+
 function showMain(){
   document.getElementById('loginScreen').style.display='none';
+  document.getElementById('registerScreen').style.display='none';
   document.getElementById('mainShell').style.display='flex';
   document.getElementById('loggedInName').textContent = loggedInDriver;
   refreshAll();
 }
+
+document.getElementById('goRegisterBtn').addEventListener('click', showRegister);
+document.getElementById('goLoginBtn').addEventListener('click', async ()=>{
+  const drivers = await apiGet('/api/drivers');
+  showLogin(drivers);
+});
 
 document.getElementById('loginBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('loginName').value;
@@ -175,6 +231,30 @@ document.getElementById('loginBtn').addEventListener('click', async ()=>{
 });
 document.getElementById('loginPassword').addEventListener('keydown', (e)=>{
   if(e.key==='Enter') document.getElementById('loginBtn').click();
+});
+
+document.getElementById('registerBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('registerName').value;
+  const password = document.getElementById('registerPassword').value;
+  const confirm = document.getElementById('registerPasswordConfirm').value;
+  const errEl = document.getElementById('registerError');
+  errEl.textContent='';
+  if(!name){ errEl.textContent='ドライバーを選択してください。'; return; }
+  if(password.length < 4){ errEl.textContent='パスワードは4文字以上で入力してください。'; return; }
+  if(password !== confirm){ errEl.textContent='パスワード(確認用)が一致しません。'; return; }
+  try{
+    const res = await fetch('/api/driver-register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name, password })
+    });
+    const data = await res.json();
+    if(!res.ok){ errEl.textContent = data.error || '登録に失敗しました。'; return; }
+    loggedInDriver = data.name;
+    localStorage.setItem('shiftDriverName', loggedInDriver);
+    showMain();
+  }catch(e){
+    errEl.textContent = '通信エラーが発生しました。もう一度お試しください。';
+  }
 });
 
 document.getElementById('logoutBtn').addEventListener('click', ()=>{
